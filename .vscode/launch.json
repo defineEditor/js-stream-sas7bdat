@@ -1,0 +1,42 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "TS-Node",
+            "type": "node",
+            "request": "launch",
+            "runtimeExecutable": "ts-node",
+            "args": ["${workspaceFolder}/src/index.ts"]
+        },
+        {
+            "name": "Debug Native & Node.js",
+            "type": "node",
+            "request": "launch",
+            "program": "${workspaceFolder}/src/index.ts",
+            "runtimeExecutable": "ts-node",
+            "runtimeArgs": [
+                "--inspect-brk"
+            ],
+            "stopOnEntry": false,
+            "sourceMaps": true,
+            "outFiles": ["${workspaceFolder}/**/*.js"],
+            "console": "integratedTerminal",
+            "internalConsoleOptions": "neverOpen"
+        },
+        {
+            "name": "Attach to gdb",
+            "type": "cppdbg",
+            "request": "attach",
+            "program": "/usr/bin/node",
+            "processId": "${command:pickProcess}",
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

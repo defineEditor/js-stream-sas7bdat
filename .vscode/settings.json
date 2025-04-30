@@ -1,0 +1,30 @@
+{
+  "files.associations": {
+    ".prettierrc": "jsonc",
+    ".eslintignore": "ignore",
+    ".eslintrc.json": "jsonc"
+  },
+
+  "eslint.validate": [
+    "javascript",
+    "javascriptreact",
+    "html",
+    "typescript",
+    "typescriptreact"
+  ],
+
+  "javascript.validate.enable": false,
+  "javascript.format.enable": false,
+  "typescript.format.enable": false,
+
+  "search.exclude": {
+    ".git": true,
+    ".eslintcache": true,
+    "dist": true,
+    "node_modules": true,
+    "npm-debug.log.*": true,
+    "test/**/__snapshots__": true,
+    "package-lock.json": true,
+    "*.{css,sass,scss}.d.ts": true
+  }
+}

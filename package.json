@@ -1,0 +1,65 @@
+{
+    "name": "js-stream-sas7bdat",
+    "version": "0.1.0",
+    "description": "Stream SAS7BDAT files using ReadStat C library",
+    "main": "dist/index.js",
+    "types": "dist/index.d.ts",
+    "files": [
+        "/dist"
+    ],
+    "scripts": {
+        "test": "jest",
+        "build": "node-gyp rebuild --arch=x64 --dist-url=https://electronjs.org/headers && rm -rf dist && tsc",
+        "install": "node-gyp rebuild",
+        "release": "npm run lint && npm run test && npm run build && npm publish",
+        "lint": "eslint . --ignore-pattern 'dist'"
+    },
+    "keywords": [
+        "readstat",
+        "sas7bdat"
+    ],
+    "prettier": {
+        "tabWidth": 4
+    },
+    "jest": {
+        "preset": "ts-jest",
+        "testEnvironment": "node",
+        "transform": {
+            "^.+\\.ts?$": "ts-jest"
+        },
+        "transformIgnorePatterns": [
+            "<rootDir>/node_modules/"
+        ],
+        "moduleNameMapper": {
+            "^class/(.*)$": "<rootDir>/src/class/$1",
+            "^interfaces/(.*)$": "<rootDir>/src/interfaces/$1"
+        }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/defineEditor/js-stream-sas7bdat.git"
+    },
+    "author": "Dmitry Kolosov",
+    "license": "MIT",
+    "devDependencies": {
+        "@types/jest": "^29.5.14",
+        "@types/node": "^22.12.0",
+        "@typescript-eslint/eslint-plugin": "^8.22.0",
+        "@typescript-eslint/parser": "^8.22.0",
+        "typescript-eslint": "^8.22.0",
+        "eslint": "^9.19.0",
+        "husky": "^9.1.7",
+        "ts-jest": "^29.2.5",
+        "typescript": "^5.7.3",
+        "node-gyp": "^11.1.0"
+    },
+    "dependencies": {
+        "node-addon-api": "^5.0.0",
+        "js-array-filter": "^0.1.4"
+    },
+    "husky": {
+        "hooks": {
+            "pre-commit": "npm run lint"
+        }
+    }
+}

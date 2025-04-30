@@ -1,0 +1,41 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Get 5 rows of dataset 1`] = `
+[
+  [
+    "Joyce",
+    "F",
+    11,
+    51.3,
+    50.5,
+  ],
+  [
+    "Judy",
+    "F",
+    14,
+    64.3,
+    90,
+  ],
+  [
+    "Louise",
+    "F",
+    12,
+    56.3,
+    77,
+  ],
+  [
+    "Mary",
+    "F",
+    15,
+    66.5,
+    112,
+  ],
+  [
+    "Philip",
+    "M",
+    16,
+    72,
+    150,
+  ],
+]
+`;

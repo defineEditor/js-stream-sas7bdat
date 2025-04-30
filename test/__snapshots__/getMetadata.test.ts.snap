@@ -1,0 +1,49 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Get metadata 1`] = `
+{
+  "columns": [
+    {
+      "dataType": "string",
+      "itemOID": "IT.Name",
+      "label": "Name",
+      "length": 8,
+      "name": "Name",
+    },
+    {
+      "dataType": "string",
+      "itemOID": "IT.Sex",
+      "label": "Sex",
+      "length": 1,
+      "name": "Sex",
+    },
+    {
+      "dataType": "double",
+      "itemOID": "IT.Age",
+      "label": "Age",
+      "length": 8,
+      "name": "Age",
+    },
+    {
+      "dataType": "double",
+      "itemOID": "IT.Height",
+      "label": "Height",
+      "length": 8,
+      "name": "Height",
+    },
+    {
+      "dataType": "double",
+      "itemOID": "IT.Weight",
+      "label": "Weight",
+      "length": 8,
+      "name": "Weight",
+    },
+  ],
+  "datasetJSONCreationDateTime": "1970-01-19T03:33:56.580Z",
+  "datasetJSONVersion": "",
+  "dbLastModifiedDateTime": "1970-01-19T03:38:06.954Z",
+  "label": "CLASS",
+  "name": "sample",
+  "records": 19,
+}
+`;
