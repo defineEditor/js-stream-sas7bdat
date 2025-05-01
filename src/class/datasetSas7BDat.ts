@@ -1,5 +1,5 @@
-/* eslint-disable @typescript-eslint/no-require-imports */
 import fs from 'fs';
+import path from 'path';
 import {
     ItemDataArray,
     ItemDataObject,
@@ -17,8 +17,9 @@ let readSas7bdat: (filePath: string, startRow?: number, rowCount?: number)
 let getSAS7BDATMetadata: (filePath: string) => Sas7BDatMetadata;
 
 try {
-    // Try to load from Release build
-    const binding = require('../../build/Release/readstat_binding.node');
+    const projectRoot = path.resolve(__dirname, '..', '..');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const binding = require('node-gyp-build')(projectRoot);
     readSas7bdat = binding.readSas7bdat;
     getSAS7BDATMetadata = binding.getSAS7BDATMetadata;
 } catch (err) {

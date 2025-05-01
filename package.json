@@ -63,7 +63,8 @@
     },
     "dependencies": {
         "js-array-filter": "^0.1.4",
-        "node-addon-api": "^5.0.0"
+        "node-addon-api": "^5.0.0",
+        "node-gyp-build": "^4.8.4"
     },
     "husky": {
         "hooks": {

@@ -1,7 +1,8 @@
 import path from 'path';
 import fs from 'fs';
+const projectRoot = path.resolve(__dirname, '..');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const binding = require('../build/Release/readstat_binding.node');
+const binding = require('node-gyp-build')(projectRoot);
 const readSas7bdat = binding.readSas7bdat;
 
 // File path to the sample SAS7BDAT file for testing
