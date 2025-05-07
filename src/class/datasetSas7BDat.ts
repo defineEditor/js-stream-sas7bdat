@@ -8,6 +8,7 @@ import {
     DataType,
     Sas7BDatMetadata,
     ItemType,
+    ItemDescription,
 } from './../interfaces/datasetSas7BDat';
 import Filter from 'js-array-filter';
 
@@ -125,7 +126,7 @@ class DatasetSas7BDat {
                 name: sasMetadata.name || '',
                 label: sasMetadata.label || '',
                 columns: sasMetadata.columns.map(col => {
-                    const parsedColumn = {
+                    const parsedColumn: ItemDescription = {
                         itemOID: col.itemOID,
                         name: col.name,
                         label: col.label || '',
@@ -134,6 +135,9 @@ class DatasetSas7BDat {
                     };
                     if (col.dataType) {
                         parsedColumn.dataType = this.mapSasTypeToJsonType(col.dataType);
+                    }
+                    if (col.displayFormat) {
+                        parsedColumn.displayFormat = col.displayFormat;
                     }
                     return parsedColumn;
                 }),
@@ -197,11 +201,11 @@ class DatasetSas7BDat {
             );
         }
 
-        const { start = 0, length, type = 'array', filter } = props;
+        const { start = 0, length = -1, type = 'array', filter } = props;
 
         // Check if start and length are valid
         if (
-            (typeof length === 'number' && length <= 0) ||
+            (typeof length === 'number' && length <= 0 && length !== -1) ||
             start < 0 ||
             start > this.metadata.records
         ) {
@@ -220,26 +224,49 @@ class DatasetSas7BDat {
                 )
                 : [];
 
-            // Read data from the SAS7BDAT file
-            let data: ItemDataArray[] | ItemDataObject[] = readSas7bdat(
-                this.filePath, start, length
-            ) as ItemDataArray[];
+            // In case of filter, we need to iterate over the dataset till the filtered data reaches length limit or end of the dataset
+            let finishedReading = false;
+            let currentRow = start;
+            let data: ItemDataArray[] | ItemDataObject[] = [];
+            while (!finishedReading) {
+                // Read data from the SAS7BDAT file
+                let currentData: ItemDataArray[] | ItemDataObject[] = readSas7bdat(
+                    this.filePath, currentRow, length
+                ) as ItemDataArray[];
 
-            // If we have a filter, apply it
-            if (filter) {
-                data = data.filter((row: ItemDataArray) =>
-                    filter.filterRow(row)
-                );
+                // If we have a filter, apply it
+                if (filter) {
+                    currentData = currentData.filter((row: ItemDataArray) =>
+                        filter.filterRow(row)
+                    );
+                    if (length === -1 || (data.length + currentData.length >= length) ||
+                        (currentRow + length >= this.metadata.records)) {
+                        finishedReading = true;
+                        // If we have reached the length limit, slice the data to fit
+
+                        if (length !== -1) {
+                            currentData = currentData.slice(0, length - data.length) as ItemDataArray[];
+                        }
+                        data = (data as ItemDataArray[]).concat(currentData);
+                    } else {
+                        // If we have not reached the length limit, add the current data to the result
+                        currentRow += length;
+                        data = (data as ItemDataArray[]).concat(currentData);
+                    }
+                } else {
+                    data = currentData;
+                    finishedReading = true;
+                }
             }
 
             // If we're returning arrays and have filtered columns, filter the arrays
             if (type === 'array' && filterColumnIndices.length > 0) {
-                return data.map((row: ItemDataArray) =>
+                return (data as ItemDataArray[]).map((row: ItemDataArray) =>
                     filterColumnIndices.map(index => row[index])
                 );
             } else if (type === 'object') {
                 // Convert to object format
-                data = data.map((row: ItemDataArray) => {
+                data = (data as ItemDataArray[]).map((row: ItemDataArray) => {
                     const obj: ItemDataObject = {};
                     this.metadata.columns.forEach((column, index) => {
                         if (filterColumns.length === 0 || filterColumnIndices.includes(index)) {

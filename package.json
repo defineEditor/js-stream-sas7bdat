@@ -12,11 +12,11 @@
     ],
     "scripts": {
         "test": "jest",
-        "build": "node-gyp rebuild --arch=x64 --dist-url=https://electronjs.org/headers  && rm -rf dist && tsc",
+        "build": "node-gyp rebuild --platform=linux --arch=x64 --dist-url=https://electronjs.org/headers  && rm -rf dist && tsc",
         "install": "node-gyp-build",
-        "prebuild-win": "prebuildify --napi --platform win32 --arch x64 && prebuildify --napi --platform win32 --arch ia32",
-        "prebuild-mac": "prebuildify --napi --platform darwin --arch x64 && prebuildify --napi --platform darwin --arch arm64",
-        "prebuild-linux": "prebuildify --napi --platform linux --arch x64 && prebuildify --napi --platform linux --arch arm64",
+        "prebuild-win": "prebuildify --platform win32 --arch x64 && prebuildify --platform win32 --arch ia32",
+        "prebuild-mac": "prebuildify --platform darwin --arch x64 && prebuildify --platform darwin --arch arm64",
+        "prebuild-linux": "prebuildify --platform linux --arch x64 && prebuildify --platform linux --arch arm64",
         "prebuild": "npm run prebuild-win && npm run prebuild-mac && npm run prebuild-linux",
         "release": "npm run lint && npm run test && npm run build && npm publish",
         "lint": "eslint . --ignore-pattern 'dist'"

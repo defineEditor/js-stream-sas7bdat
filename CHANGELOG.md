@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.1.3]
+* Fixing an issue when filtering datasets with the number of rows > page length
+* Updating compilation instructions for Windows
+
 ## [0.1.2]
 * Adding pre-builds
 

@@ -19,6 +19,7 @@ exports[`Get metadata 1`] = `
     },
     {
       "dataType": "double",
+      "displayFormat": "F4",
       "itemOID": "IT.Age",
       "label": "Age",
       "length": 8,
@@ -26,6 +27,7 @@ exports[`Get metadata 1`] = `
     },
     {
       "dataType": "double",
+      "displayFormat": "F8",
       "itemOID": "IT.Height",
       "label": "Height",
       "length": 8,

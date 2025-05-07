@@ -39,6 +39,28 @@
       "defines": ["NAPI_DISABLE_CPP_EXCEPTIONS"],
       "conditions": [
         ["OS=='win'", {
+          "include_dirs": [
+            "src/binding/libiconv/include"
+          ],
+          "defines": [
+            "LIBICONV_STATIC"
+          ],
+          "conditions": [
+            ["target_arch=='ia32'", {
+              "link_settings": {
+                "libraries": [
+                  "-l<(module_root_dir)/src/binding/libiconv/x32/libiconv.lib"
+                ]
+              }
+            }],
+            ["target_arch=='x64'", {
+              "link_settings": {
+                "libraries": [
+                  "-l<(module_root_dir)/src/binding/libiconv/x64/libiconv.lib"
+                ]
+              }
+            }]
+          ],
           "msvs_settings": {
             "VCCLCompilerTool": {
               "ExceptionHandling": 1

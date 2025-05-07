@@ -16,6 +16,17 @@ Install the library using npm:
 npm install js-stream-sas7bdat
 ```
 
+## Building Node extension
+
+To build the node native extension:
+```sh
+npm run build
+```
+
+To build on Windows, it is required to compile libiconv outside of this project and place iconv.h to src/binding/libiconv/include and 32-bit and 64-bit versions of libiconv.lib in folders /src/binding/libiconv/x32/ and /src/binding/libiconv/x64/.
+
+The project includes prebuild binaries which were tested for Linux x64 and Windows x64.
+
 ## Usage
 ```TypeScript
 dataset = new DatasetSas7BDat(filePath, [options])
@@ -72,7 +83,7 @@ const filter = new Filter('dataset-json1.1', metadata.columns, {
 });
 
 // Apply the filter when reading data
-const filteredData = await dataset.getData({
+const filteredData = dataset.getData({
     start: 0,
     filter: filter,
     filterColumns: ['USUBJID', 'DCDECOD', 'AGE']

@@ -12,5 +12,20 @@ exports[`Get filtered rows of dataset with simple "and" filter 1`] = `
     "M",
     14,
   ],
+  [
+    "Philip",
+    "M",
+    16,
+  ],
+  [
+    "Ronald",
+    "M",
+    15,
+  ],
+  [
+    "William",
+    "M",
+    15,
+  ],
 ]
 `;
