@@ -16,6 +16,17 @@ Install the library using npm:
 npm install js-stream-sas7bdat
 ```
 
+## Building Node extension
+
+To build the node native extension:
+```sh
+npm run build
+```
+
+To build on Windows, it is required to compile libiconv outside of this project and place iconv.h to src/binding/libiconv/include and 32-bit and 64-bit versions of libiconv.lib in folders /src/binding/libiconv/x32/ and /src/binding/libiconv/x64/.
+
+The project includes prebuild binaries which were tested for Linux x64 and Windows x64.
+
 ## Usage
 ```TypeScript
 dataset = new DatasetSas7BDat(filePath, [options])
@@ -72,7 +83,7 @@ const filter = new Filter('dataset-json1.1', metadata.columns, {
 });
 
 // Apply the filter when reading data
-const filteredData = await dataset.getData({
+const filteredData = dataset.getData({
     start: 0,
     filter: filter,
     filterColumns: ['USUBJID', 'DCDECOD', 'AGE']
@@ -109,6 +120,7 @@ Reads observations from the dataset.
   - `type` (DataType, optional): The type of the returned object ("array" or "object"). Defaults to "array".
   - `filterColumns` (string[], optional): The list of columns to return when type is "object". If empty, all columns are returned.
   - `filter` (Filter, optional): A Filter instance from js-array-filter package used to filter data records.
+  - `dynamicLength` (boolean, optional): When using a filter, this will dynamically adjust chunk size to optimize performance. Defaults to false.
 
 #### Returns
 
@@ -129,8 +141,10 @@ Reads observations as an iterable.
 
 - `props` (object, optional): An object containing the following properties:
   - `start` (number, optional): The starting position for reading data. Defaults to 0.
+  - `bufferLength` (number, optional): The number of records to read in each chunk. Defaults to 1000.
   - `type` (DataType, optional): The type of data to return ("array" or "object"). Defaults to "array".
   - `filterColumns` (string[], optional): An array of column names to include in the returned data.
+  - `dynamicLength` (boolean, optional): When using a filter, this will dynamically adjust chunk size to optimize performance. Defaults to false.
 
 #### Returns
 

@@ -277,39 +277,6 @@ Napi::Value GetSAS7BDATMetadata(const Napi::CallbackInfo& info) {
     // Add file format information
     context.dataset.Set("fileFormat", Napi::String::New(env, "SAS7BDAT"));
 
-    // Add modification time as timestamp number if available
-    if (context.metadata) {
-        // Add compression info if available
-        // const readstat_compress_t compression = readstat_get_compression(context.metadata);
-        // const char* compression_str = compressionTypeToString(compression);
-        // printf("DEBUG: pointer = %p\n", (void*)compression_str);
-        // context.dataset.Set("compression", Napi::String::New(env, compression_str));
-
-        // // Add character encoding information
-        // const char* encoding = readstat_get_file_encoding(context.metadata);
-        // printf("DEBUG: encoding pointer = %p\n", (void*)encoding);
-        // if (encoding != NULL) {
-        //     context.dataset.Set("encoding", Napi::String::New(env, encoding));
-        // }
-
-        // Add table display label if different from file label
-        // const char* tableLabel = readstat_get_table_name(context.metadata);
-        // printf("DEBUG: pointer = %p\n", (void*)tableLabel);
-        // if (tableLabel && strlen(tableLabel) > 0 &&
-        //     strcmp(tableLabel, readstat_get_file_label(context.metadata)) != 0) {
-        //     context.dataset.Set("tableLabel", Napi::String::New(env, tableLabel));
-        // }
-
-        // Add file version information
-        // int file_format_version = readstat_get_file_format_version(context.metadata);
-        // if (file_format_version > 0) {
-        //     context.dataset.Set("fileFormatVersion", Napi::Number::New(env, file_format_version));
-        // }
-
-        // Add bit level information (32/64 bit)
-        // context.dataset.Set("is64Bit", Napi::Boolean::New(env, readstat_get_file_format_is_64bit(context.metadata)));
-    }
-
     // Cleanup
     readstat_parser_free(parser);
 
