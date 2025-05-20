@@ -120,6 +120,7 @@ Reads observations from the dataset.
   - `type` (DataType, optional): The type of the returned object ("array" or "object"). Defaults to "array".
   - `filterColumns` (string[], optional): The list of columns to return when type is "object". If empty, all columns are returned.
   - `filter` (Filter, optional): A Filter instance from js-array-filter package used to filter data records.
+  - `dynamicLength` (boolean, optional): When using a filter, this will dynamically adjust chunk size to optimize performance. Defaults to false.
 
 #### Returns
 
@@ -140,8 +141,10 @@ Reads observations as an iterable.
 
 - `props` (object, optional): An object containing the following properties:
   - `start` (number, optional): The starting position for reading data. Defaults to 0.
+  - `bufferLength` (number, optional): The number of records to read in each chunk. Defaults to 1000.
   - `type` (DataType, optional): The type of data to return ("array" or "object"). Defaults to "array".
   - `filterColumns` (string[], optional): An array of column names to include in the returned data.
+  - `dynamicLength` (boolean, optional): When using a filter, this will dynamically adjust chunk size to optimize performance. Defaults to false.
 
 #### Returns
 

@@ -12,7 +12,7 @@
     ],
     "scripts": {
         "test": "jest",
-        "build": "node-gyp rebuild --platform=linux --arch=x64 --dist-url=https://electronjs.org/headers  && rm -rf dist && tsc",
+        "build": "rm -rf dist && tsc",
         "install": "node-gyp-build",
         "prebuild-win": "prebuildify --platform win32 --arch x64 && prebuildify --platform win32 --arch ia32",
         "prebuild-mac": "prebuildify --platform darwin --arch x64 && prebuildify --platform darwin --arch arm64",

@@ -13,8 +13,11 @@ import {
 import Filter from 'js-array-filter';
 
 // Import C++ binding with proper error handling
-let readSas7bdat: (filePath: string, startRow?: number, rowCount?: number)
-    => ItemDataArray[];
+let readSas7bdat: (
+    filePath: string,
+    startRow?: number,
+    rowCount?: number
+) => ItemDataArray[];
 let getSAS7BDATMetadata: (filePath: string) => Sas7BDatMetadata;
 
 try {
@@ -25,7 +28,10 @@ try {
     getSAS7BDATMetadata = binding.getSAS7BDATMetadata;
 } catch (err) {
     if (err instanceof Error) {
-        throw new Error('Cannot load SAS7BDAT native module. Make sure the module is properly built using node-gyp. ' + err.message);
+        throw new Error(
+            'Cannot load SAS7BDAT native module. Make sure the module is properly built using node-gyp. ' +
+                err.message
+        );
     }
 }
 
@@ -115,17 +121,27 @@ class DatasetSas7BDat {
         }
 
         try {
-            const sasMetadata: Sas7BDatMetadata = getSAS7BDATMetadata(this.filePath);
+            const sasMetadata: Sas7BDatMetadata = getSAS7BDATMetadata(
+                this.filePath
+            );
 
             // Map ReadStat metadata to our DatasetMetadata interface
             this.metadata = {
-                datasetJSONCreationDateTime: new Date(sasMetadata.CreationDateTime || '').toISOString(),
-                dbLastModifiedDateTime: new Date(sasMetadata.ModifiedDateTime || '').toISOString(),
+                datasetJSONCreationDateTime: new Date(
+                    sasMetadata.CreationDateTime
+                        ? sasMetadata.CreationDateTime * 1000
+                        : ''
+                ).toISOString(),
+                dbLastModifiedDateTime: new Date(
+                    sasMetadata.ModifiedDateTime
+                        ? sasMetadata.ModifiedDateTime * 1000
+                        : ''
+                ).toISOString(),
                 datasetJSONVersion: '',
                 records: sasMetadata.records,
                 name: sasMetadata.name || '',
                 label: sasMetadata.label || '',
-                columns: sasMetadata.columns.map(col => {
+                columns: sasMetadata.columns.map((col) => {
                     const parsedColumn: ItemDescription = {
                         itemOID: col.itemOID,
                         name: col.name,
@@ -134,7 +150,9 @@ class DatasetSas7BDat {
                         dataType: 'string' as ItemType,
                     };
                     if (col.dataType) {
-                        parsedColumn.dataType = this.mapSasTypeToJsonType(col.dataType);
+                        parsedColumn.dataType = this.mapSasTypeToJsonType(
+                            col.dataType
+                        );
                     }
                     if (col.displayFormat) {
                         parsedColumn.displayFormat = col.displayFormat;
@@ -155,7 +173,7 @@ class DatasetSas7BDat {
      */
     private mapSasTypeToJsonType(sasType: string): ItemType {
         // Map SAS types to Dataset-JSON compatible types
-        switch(sasType.toLowerCase()) {
+        switch (sasType.toLowerCase()) {
         case 'double':
             return 'double';
         case 'text':
@@ -172,6 +190,7 @@ class DatasetSas7BDat {
      * @param type - The type of the returned object.
      * @param filterColumns - The list of columns to return when type is object. If empty, all columns are returned.
      * @param filter - A filter class object used to filter data records when reading the dataset.
+     * @param dynamicLength - In case of filter, increase the length until the filtered data reaches length limit
      * @return An array of observations.
      */
     async getData(props: {
@@ -180,6 +199,7 @@ class DatasetSas7BDat {
         type?: DataType;
         filterColumns?: string[];
         filter?: Filter;
+        dynamicLength?: boolean;
     }): Promise<(ItemDataArray | ItemDataObject)[]> {
         // Check if metadata is loaded
         if (this.metadataLoaded === false) {
@@ -187,6 +207,7 @@ class DatasetSas7BDat {
         }
 
         let { filterColumns = [] } = props;
+        const { dynamicLength = false } = props;
 
         // Convert filterColumns to lowercase for case-insensitive comparison
         filterColumns = filterColumns.map((item) => item.toLowerCase());
@@ -216,41 +237,77 @@ class DatasetSas7BDat {
 
         try {
             // Get the column indices for filtering if needed
-            const filterColumnIndices = filterColumns.length > 0
-                ? filterColumns.map(column =>
-                    this.metadata.columns.findIndex(
-                        item => item.name.toLowerCase() === column.toLowerCase()
+            const filterColumnIndices =
+                filterColumns.length > 0
+                    ? filterColumns.map((column) =>
+                        this.metadata.columns.findIndex(
+                            (item) =>
+                                item.name.toLowerCase() ===
+                                  column.toLowerCase()
+                        )
                     )
-                )
-                : [];
+                    : [];
 
             // In case of filter, we need to iterate over the dataset till the filtered data reaches length limit or end of the dataset
             let finishedReading = false;
             let currentRow = start;
+            // Use dynamic length when filter is applied
+            let currentLength = length;
             let data: ItemDataArray[] | ItemDataObject[] = [];
             while (!finishedReading) {
                 // Read data from the SAS7BDAT file
-                let currentData: ItemDataArray[] | ItemDataObject[] = readSas7bdat(
-                    this.filePath, currentRow, length
-                ) as ItemDataArray[];
+                let currentData: ItemDataArray[] | ItemDataObject[] =
+                    readSas7bdat(
+                        this.filePath,
+                        currentRow,
+                        currentLength
+                    ) as ItemDataArray[];
 
                 // If we have a filter, apply it
                 if (filter) {
                     currentData = currentData.filter((row: ItemDataArray) =>
                         filter.filterRow(row)
                     );
-                    if (length === -1 || (data.length + currentData.length >= length) ||
-                        (currentRow + length >= this.metadata.records)) {
+                    if (
+                        length === -1 ||
+                        data.length + currentData.length >= length ||
+                        currentRow + currentLength >= this.metadata.records
+                    ) {
                         finishedReading = true;
                         // If we have reached the length limit, slice the data to fit
-
                         if (length !== -1) {
-                            currentData = currentData.slice(0, length - data.length) as ItemDataArray[];
+                            currentData = currentData.slice(
+                                0,
+                                length - data.length
+                            ) as ItemDataArray[];
                         }
                         data = (data as ItemDataArray[]).concat(currentData);
                     } else {
                         // If we have not reached the length limit, add the current data to the result
-                        currentRow += length;
+                        currentRow += currentLength;
+                        if (filter && dynamicLength) {
+                            // Calculate the filter ratio (how many records pass the filter)
+                            const filterRatio =
+                                data.length / (currentRow - start);
+                            // Estimate how many records we need to read to get the desired length
+                            const targetLength = length - data.length;
+
+                            // Avoid division by zero or very small ratios
+                            const adjustmentFactor = Math.max(filterRatio, 0.1);
+
+                            // Calculate new length based on the filter ratio
+                            const estimatedLength = Math.ceil(
+                                targetLength / adjustmentFactor
+                            );
+
+                            // Apply reasonable bounds to the new length
+                            currentLength = Math.min(
+                                Math.max(estimatedLength, length), // Don't go below the initial length
+                                currentLength * 2, // Don't exceed double the current length
+                                length * 10, // Don't exceed 10 times the target length to avoid memory issues
+                                this.metadata.records - currentRow // Don't exceed remaining records
+                            );
+                        }
                         data = (data as ItemDataArray[]).concat(currentData);
                     }
                 } else {
@@ -262,14 +319,17 @@ class DatasetSas7BDat {
             // If we're returning arrays and have filtered columns, filter the arrays
             if (type === 'array' && filterColumnIndices.length > 0) {
                 return (data as ItemDataArray[]).map((row: ItemDataArray) =>
-                    filterColumnIndices.map(index => row[index])
+                    filterColumnIndices.map((index) => row[index])
                 );
             } else if (type === 'object') {
                 // Convert to object format
                 data = (data as ItemDataArray[]).map((row: ItemDataArray) => {
                     const obj: ItemDataObject = {};
                     this.metadata.columns.forEach((column, index) => {
-                        if (filterColumns.length === 0 || filterColumnIndices.includes(index)) {
+                        if (
+                            filterColumns.length === 0 ||
+                            filterColumnIndices.includes(index)
+                        ) {
                             obj[column.name] = row[index];
                         }
                     });
@@ -289,6 +349,7 @@ class DatasetSas7BDat {
      * @param bufferLength - The number of records to read in a chunk.
      * @param type - The type of the returned object.
      * @param filterColumns - The list of columns to return when type is object. If empty, all columns are returned.
+     * @param dynamicLength - In case of filter, increase the length until the filtered data reaches length limit
      * @return An iterable object.
      */
     async *readRecords(props?: {
@@ -296,6 +357,7 @@ class DatasetSas7BDat {
         bufferLength?: number;
         type?: DataType;
         filterColumns?: string[];
+        dynamicLength?: boolean;
     }): AsyncGenerator<ItemDataArray | ItemDataObject, void, undefined> {
         // Check if metadata is loaded
         if (this.metadataLoaded === false) {
@@ -307,6 +369,7 @@ class DatasetSas7BDat {
             bufferLength = 1000,
             type,
             filterColumns,
+            dynamicLength = false,
         } = props || {};
         let currentPosition = start;
 
@@ -316,6 +379,7 @@ class DatasetSas7BDat {
                 length: bufferLength,
                 type,
                 filterColumns,
+                dynamicLength,
             });
 
             if (!data || data.length === 0) {
@@ -349,7 +413,12 @@ class DatasetSas7BDat {
         bufferLength?: number;
         sort?: boolean;
     }): Promise<UniqueValues> {
-        const { limit = 0, bufferLength = 1000, sort = true, addCount = false } = props;
+        const {
+            limit = 0,
+            bufferLength = 1000,
+            sort = true,
+            addCount = false,
+        } = props;
         let { columns } = props;
         const result: UniqueValues = {};
 
@@ -402,17 +471,21 @@ class DatasetSas7BDat {
                 }
 
                 if (addCount) {
-                    const valueId = row[column] === null ? 'null' : String(row[column]);
-                    result[column].counts[valueId] = result[column].counts[valueId] > 0
-                        ? (result[column].counts[valueId] + 1)
-                        : 1;
+                    const valueId =
+                        row[column] === null ? 'null' : String(row[column]);
+                    result[column].counts[valueId] =
+                        result[column].counts[valueId] > 0
+                            ? result[column].counts[valueId] + 1
+                            : 1;
                 }
             });
 
             // Check if all unique values are found
-            isFinished = limit !== 0 && Object.keys(uniqueCount).every(
-                (key) => uniqueCount[key] >= limit
-            );
+            isFinished =
+                limit !== 0 &&
+                Object.keys(uniqueCount).every(
+                    (key) => uniqueCount[key] >= limit
+                );
 
             if (isFinished) {
                 break;
