@@ -288,7 +288,7 @@ class DatasetSas7BDat {
                         if (filter && dynamicLength) {
                             // Calculate the filter ratio (how many records pass the filter)
                             const filterRatio =
-                                data.length / (currentRow - start);
+                                (data.length + currentData.length) / (currentRow - start);
                             // Estimate how many records we need to read to get the desired length
                             const targetLength = length - data.length;
 

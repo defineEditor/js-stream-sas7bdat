@@ -1,5 +1,35 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
+exports[`Get filtered rows of dataset with dynamic length 1`] = `
+[
+  [
+    "Alfred",
+    "M",
+    14,
+  ],
+  [
+    "Henry",
+    "M",
+    14,
+  ],
+  [
+    "James",
+    "M",
+    12,
+  ],
+  [
+    "Jeffrey",
+    "M",
+    13,
+  ],
+  [
+    "John",
+    "M",
+    12,
+  ],
+]
+`;
+
 exports[`Get filtered rows of dataset with simple "and" filter 1`] = `
 [
   [
