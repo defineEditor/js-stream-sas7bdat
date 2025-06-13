@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.1.5]
+* Audit Fix
+
 ## [0.1.4]
 * Fixing creation/modification time
 * Adding dynamic length flag for reading data with filters
