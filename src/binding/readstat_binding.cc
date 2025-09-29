@@ -154,10 +154,13 @@ static int handle_metadata_only(readstat_metadata_t *metadata, void *ctx) {
     context->dataset.Set("records", Napi::Number::New(context->env,
                         readstat_get_row_count(metadata)));
 
+    // Set dataset name
+    const char* tableName = readstat_get_table_name(metadata);
+    context->dataset.Set("name", Napi::String::New(context->env, tableName));
+
     // Set dataset label if available
     const char* fileLabel = readstat_get_file_label(metadata);
-    const char* tableLabel = readstat_get_table_name(metadata);
-    context->dataset.Set("label", Napi::String::New(context->env, tableLabel ? tableLabel : fileLabel));
+    context->dataset.Set("label", Napi::String::New(context->env, fileLabel));
 
     // Creation time
     time_t creationTime = readstat_get_creation_time(metadata);
@@ -269,7 +272,11 @@ Napi::Value GetSAS7BDATMetadata(const Napi::CallbackInfo& info) {
     // Get file name from path for the name field
     std::string fileName = filePath.substr(filePath.find_last_of("/\\") + 1);
     fileName = fileName.substr(0, fileName.find_last_of("."));
-    context.dataset.Set("name", Napi::String::New(env, fileName));
+
+    // If the name field is empty, use the file name
+    if (context.dataset.Get("name").ToString().Utf8Value().empty()) {
+        context.dataset.Set("name", Napi::String::New(env, fileName));
+    }
 
     // Add file path for reference
     context.dataset.Set("filePath", Napi::String::New(env, filePath));
@@ -299,7 +306,7 @@ Napi::Value ReadSas7bdat(const Napi::CallbackInfo& info) {
 
     // Initialize the parser
     readstat_parser_t *parser = readstat_parser_init();
-    
+
     // Parse optional row offset parameter
     if (info.Length() > 1 && info[1].IsNumber()) {
         long row_offset = info[1].As<Napi::Number>().Int32Value();
