@@ -8,3 +8,11 @@ test('Get metadata', async () => {
     const metadata = await data.getMetadata();
     expect(metadata).toMatchSnapshot();
 });
+
+test('Get metadata for dataset with label', async () => {
+    const filePath = path.join(__dirname, '/data/sampleLabel.sas7bdat');
+
+    const data = new DatasetSas7BDat(filePath);
+    const metadata = await data.getMetadata();
+    expect(metadata).toMatchSnapshot();
+});

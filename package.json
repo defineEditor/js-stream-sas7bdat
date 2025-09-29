@@ -1,6 +1,6 @@
 {
     "name": "js-stream-sas7bdat",
-    "version": "0.1.5",
+    "version": "0.1.6",
     "description": "Stream SAS7BDAT files using ReadStat C library",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
@@ -26,7 +26,8 @@
         "sas7bdat"
     ],
     "prettier": {
-        "tabWidth": 4
+        "tabWidth": 4,
+        "singleQuote": true
     },
     "jest": {
         "preset": "ts-jest",
@@ -62,7 +63,7 @@
         "typescript-eslint": "^8.22.0"
     },
     "dependencies": {
-        "js-array-filter": "^0.1.4",
+        "js-array-filter": "^0.1.5",
         "node-addon-api": "^5.0.0",
         "node-gyp-build": "^4.8.4"
     },
