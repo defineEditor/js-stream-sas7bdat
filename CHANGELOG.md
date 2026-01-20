@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.1.7]
+* Updating dependencies
+
 ## [0.1.6]
 * Fixing an issue with missing dataset label
 * Updating dependencies
