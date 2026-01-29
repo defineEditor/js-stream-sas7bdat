@@ -240,7 +240,7 @@ class DatasetSas7BDat {
         if (!(filter instanceof Filter) && filter !== undefined) {
             filterClass = new Filter('dataset-json1.1', this.metadata.columns, filter);
         } else {
-            filterClass = props.filter as Filter | undefined;
+            filterClass = filter as Filter | undefined;
         }
 
         try {
@@ -293,7 +293,7 @@ class DatasetSas7BDat {
                     } else {
                         // If we have not reached the length limit, add the current data to the result
                         currentRow += currentLength;
-                        if (filterClass && dynamicLength) {
+                        if (dynamicLength) {
                             // Calculate the filter ratio (how many records pass the filter)
                             const filterRatio =
                                 (data.length + currentData.length) / (currentRow - start);
