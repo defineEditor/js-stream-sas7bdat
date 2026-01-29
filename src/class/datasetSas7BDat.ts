@@ -10,7 +10,7 @@ import {
     ItemType,
     ItemDescription,
 } from './../interfaces/datasetSas7BDat';
-import Filter from 'js-array-filter';
+import Filter, { BasicFilter } from 'js-array-filter';
 
 // Import C++ binding with proper error handling
 let readSas7bdat: (
@@ -198,7 +198,7 @@ class DatasetSas7BDat {
         length?: number;
         type?: DataType;
         filterColumns?: string[];
-        filter?: Filter;
+        filter?: Filter | BasicFilter;
         dynamicLength?: boolean;
     }): Promise<(ItemDataArray | ItemDataObject)[]> {
         // Check if metadata is loaded
@@ -235,6 +235,14 @@ class DatasetSas7BDat {
             );
         }
 
+        // Create a filter class instance
+        let filterClass: Filter | undefined = undefined;
+        if (!(filter instanceof Filter) && filter !== undefined) {
+            filterClass = new Filter('dataset-json1.1', this.metadata.columns, filter);
+        } else {
+            filterClass = filter as Filter | undefined;
+        }
+
         try {
             // Get the column indices for filtering if needed
             const filterColumnIndices =
@@ -264,9 +272,9 @@ class DatasetSas7BDat {
                     ) as ItemDataArray[];
 
                 // If we have a filter, apply it
-                if (filter) {
+                if (filterClass) {
                     currentData = currentData.filter((row: ItemDataArray) =>
-                        filter.filterRow(row)
+                        filterClass!.filterRow(row)
                     );
                     if (
                         length === -1 ||
@@ -285,7 +293,7 @@ class DatasetSas7BDat {
                     } else {
                         // If we have not reached the length limit, add the current data to the result
                         currentRow += currentLength;
-                        if (filter && dynamicLength) {
+                        if (dynamicLength) {
                             // Calculate the filter ratio (how many records pass the filter)
                             const filterRatio =
                                 (data.length + currentData.length) / (currentRow - start);

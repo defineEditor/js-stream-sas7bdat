@@ -1,5 +1,5 @@
 import DatasetSas7BDat from '../src/index';
-import Filter from 'js-array-filter';
+import Filter, { BasicFilter } from 'js-array-filter';
 import path from 'path';
 
 test('Get filtered rows of dataset with simple "and" filter', async () => {
@@ -67,4 +67,24 @@ test('Get filtered rows of dataset with dynamic length', async () => {
     });
     expect(rows.length).toBeLessThanOrEqual(5);
     expect(rows).toMatchSnapshot();
+});
+
+test('Pass BasicFilter', async () => {
+    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+
+    const data = new DatasetSas7BDat(filePath);
+
+    const filter = {
+        conditions: [
+            { variable: 'AGE', operator: 'gt', value: 12 },
+            { variable: 'SEX', operator: 'eq', value: 'M' },
+        ],
+        connectors: ['or'],
+    } as BasicFilter;
+    const rows = await data.getData({
+        start: 0,
+        filter,
+        filterColumns: ['NAME', 'SEX', 'AGE'],
+    });
+    expect(rows.length).toEqual(16);
 });
