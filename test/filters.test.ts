@@ -22,8 +22,8 @@ test('Get filtered rows of dataset with simple "and" filter', async () => {
         filter,
         filterColumns: ['NAME', 'SEX', 'AGE'],
     });
-    expect(rows.length).toBeLessThanOrEqual(5);
-    expect(rows).toMatchSnapshot();
+    expect(rows.data.length).toBeLessThanOrEqual(5);
+    expect(rows.data).toMatchSnapshot();
 });
 
 test('Get filtered rows of dataset with simple "or" filter', async () => {
@@ -44,7 +44,7 @@ test('Get filtered rows of dataset with simple "or" filter', async () => {
         filter,
         filterColumns: ['NAME', 'SEX', 'AGE'],
     });
-    expect(rows.length).toEqual(16);
+    expect(rows.data.length).toEqual(16);
 });
 
 test('Get filtered rows of dataset with dynamic length', async () => {
@@ -63,10 +63,9 @@ test('Get filtered rows of dataset with dynamic length', async () => {
         length: 5,
         filter,
         filterColumns: ['NAME', 'SEX', 'AGE'],
-        dynamicLength: true,
     });
-    expect(rows.length).toBeLessThanOrEqual(5);
-    expect(rows).toMatchSnapshot();
+    expect(rows.data.length).toBeLessThanOrEqual(5);
+    expect(rows.data).toMatchSnapshot();
 });
 
 test('Pass BasicFilter', async () => {
@@ -86,5 +85,47 @@ test('Pass BasicFilter', async () => {
         filter,
         filterColumns: ['NAME', 'SEX', 'AGE'],
     });
-    expect(rows.length).toEqual(16);
+    expect(rows.data.length).toEqual(16);
+});
+
+test('Check Last Row is correct', async () => {
+    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+
+    const data = new DatasetSas7BDat(filePath);
+
+    const filter = {
+        conditions: [
+            { variable: 'AGE', operator: 'gt', value: 12 },
+            { variable: 'SEX', operator: 'eq', value: 'M' },
+        ],
+        connectors: ['or'],
+    } as BasicFilter;
+    const rows = await data.getData({
+        start: 0,
+        filter,
+        filterColumns: ['NAME', 'SEX', 'AGE'],
+    });
+    expect(rows.lastRow).toEqual(18);
+    expect(rows.endReached).toEqual(true);
+});
+
+test('Last Row is correctly set when length limit is reached', async () => {
+    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+
+    const data = new DatasetSas7BDat(filePath);
+
+    const filter = {
+        conditions: [
+            { variable: 'SEX', operator: 'eq', value: 'F' },
+        ],
+        connectors: [],
+    } as BasicFilter;
+    const rows = await data.getData({
+        start: 0,
+        length: 8,
+        filter,
+        filterColumns: ['NAME', 'SEX', 'AGE'],
+    });
+    expect(rows.lastRow).toEqual(12);
+    expect(rows.endReached).toEqual(false);
 });
