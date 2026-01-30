@@ -1,5 +1,9 @@
 # Changelog
 
+## [0.2.0]
+* Breaking change: getData return signature changed to { data: ItemDataArray[]|ItemDataObject[] , lastRow: number, endReached: boolean}
+* Removed dynamicLength due to inefficiency
+
 ## [0.1.9]
 * Fixing issues
 

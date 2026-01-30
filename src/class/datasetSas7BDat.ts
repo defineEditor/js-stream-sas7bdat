@@ -190,8 +190,7 @@ class DatasetSas7BDat {
      * @param type - The type of the returned object.
      * @param filterColumns - The list of columns to return when type is object. If empty, all columns are returned.
      * @param filter - A filter class object used to filter data records when reading the dataset.
-     * @param dynamicLength - In case of filter, increase the length until the filtered data reaches length limit
-     * @return An array of observations.
+     * @return An array of observations, last processed row number, and a flag indicating if the end of the dataset is reached.
      */
     async getData(props: {
         start?: number;
@@ -199,15 +198,13 @@ class DatasetSas7BDat {
         type?: DataType;
         filterColumns?: string[];
         filter?: Filter | BasicFilter;
-        dynamicLength?: boolean;
-    }): Promise<(ItemDataArray | ItemDataObject)[]> {
+    }): Promise<{data: (ItemDataArray | ItemDataObject)[], lastRow: number, endReached: boolean}> {
         // Check if metadata is loaded
         if (this.metadataLoaded === false) {
             await this.getMetadata();
         }
 
         let { filterColumns = [] } = props;
-        const { dynamicLength = false } = props;
 
         // Convert filterColumns to lowercase for case-insensitive comparison
         filterColumns = filterColumns.map((item) => item.toLowerCase());
@@ -259,8 +256,7 @@ class DatasetSas7BDat {
             // In case of filter, we need to iterate over the dataset till the filtered data reaches length limit or end of the dataset
             let finishedReading = false;
             let currentRow = start;
-            // Use dynamic length when filter is applied
-            let currentLength = length;
+            let endReached = false;
             let data: ItemDataArray[] | ItemDataObject[] = [];
             while (!finishedReading) {
                 // Read data from the SAS7BDAT file
@@ -268,57 +264,50 @@ class DatasetSas7BDat {
                     readSas7bdat(
                         this.filePath,
                         currentRow,
-                        currentLength
+                        length
                     ) as ItemDataArray[];
 
                 // If we have a filter, apply it
                 if (filterClass) {
-                    currentData = currentData.filter((row: ItemDataArray) =>
-                        filterClass!.filterRow(row)
-                    );
+                    let lastBlockRow = currentData.length;
+                    let filteredRecords = 0;
+                    let lengthLimitReached = false;
+                    currentData = currentData.filter((row: ItemDataArray, index) => {
+                        if (filterClass!.filterRow(row) && !lengthLimitReached) {
+                            filteredRecords += 1;
+                            // Do not add records beyond the length limit
+                            if ((data.length + filteredRecords) > length && length !== -1) {
+                                // As we "cut" the data, we need to track the position where it was cut
+                                lastBlockRow = index;
+                                lengthLimitReached = true;
+                                return false;
+                            }
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    });
                     if (
                         length === -1 ||
                         data.length + currentData.length >= length ||
-                        currentRow + currentLength >= this.metadata.records
+                        currentRow + length >= this.metadata.records
                     ) {
                         finishedReading = true;
-                        // If we have reached the length limit, slice the data to fit
-                        if (length !== -1) {
-                            currentData = currentData.slice(
-                                0,
-                                length - data.length
-                            ) as ItemDataArray[];
+                        if (length === -1) {
+                            endReached = true;
+                        } else if (currentRow + length >= this.metadata.records && !lengthLimitReached) {
+                            endReached = true;
                         }
+                        currentRow += lastBlockRow;
                         data = (data as ItemDataArray[]).concat(currentData);
                     } else {
                         // If we have not reached the length limit, add the current data to the result
-                        currentRow += currentLength;
-                        if (dynamicLength) {
-                            // Calculate the filter ratio (how many records pass the filter)
-                            const filterRatio =
-                                (data.length + currentData.length) / (currentRow - start);
-                            // Estimate how many records we need to read to get the desired length
-                            const targetLength = length - data.length;
-
-                            // Avoid division by zero or very small ratios
-                            const adjustmentFactor = Math.max(filterRatio, 0.1);
-
-                            // Calculate new length based on the filter ratio
-                            const estimatedLength = Math.ceil(
-                                targetLength / adjustmentFactor
-                            );
-
-                            // Apply reasonable bounds to the new length
-                            currentLength = Math.min(
-                                Math.max(estimatedLength, length), // Don't go below the initial length
-                                currentLength * 2, // Don't exceed double the current length
-                                length * 10, // Don't exceed 10 times the target length to avoid memory issues
-                                this.metadata.records - currentRow // Don't exceed remaining records
-                            );
-                        }
+                        currentRow += length;
                         data = (data as ItemDataArray[]).concat(currentData);
                     }
                 } else {
+                    currentRow += currentData.length;
+                    endReached = currentRow >= this.metadata.records;
                     data = currentData;
                     finishedReading = true;
                 }
@@ -326,9 +315,14 @@ class DatasetSas7BDat {
 
             // If we're returning arrays and have filtered columns, filter the arrays
             if (type === 'array' && filterColumnIndices.length > 0) {
-                return (data as ItemDataArray[]).map((row: ItemDataArray) =>
+                const filteredData = (data as ItemDataArray[]).map((row: ItemDataArray) =>
                     filterColumnIndices.map((index) => row[index])
                 );
+                return {
+                    data: filteredData,
+                    lastRow: currentRow - 1,
+                    endReached,
+                };
             } else if (type === 'object') {
                 // Convert to object format
                 data = (data as ItemDataArray[]).map((row: ItemDataArray) => {
@@ -345,7 +339,11 @@ class DatasetSas7BDat {
                 });
             }
 
-            return data;
+            return {
+                data,
+                lastRow: currentRow - 1,
+                endReached,
+            };
         } catch (error) {
             throw new Error(`Failed to read SAS7BDAT data: ${error}`);
         }
@@ -357,7 +355,6 @@ class DatasetSas7BDat {
      * @param bufferLength - The number of records to read in a chunk.
      * @param type - The type of the returned object.
      * @param filterColumns - The list of columns to return when type is object. If empty, all columns are returned.
-     * @param dynamicLength - In case of filter, increase the length until the filtered data reaches length limit
      * @return An iterable object.
      */
     async *readRecords(props?: {
@@ -365,7 +362,6 @@ class DatasetSas7BDat {
         bufferLength?: number;
         type?: DataType;
         filterColumns?: string[];
-        dynamicLength?: boolean;
     }): AsyncGenerator<ItemDataArray | ItemDataObject, void, undefined> {
         // Check if metadata is loaded
         if (this.metadataLoaded === false) {
@@ -377,7 +373,6 @@ class DatasetSas7BDat {
             bufferLength = 1000,
             type,
             filterColumns,
-            dynamicLength = false,
         } = props || {};
         let currentPosition = start;
 
@@ -387,17 +382,16 @@ class DatasetSas7BDat {
                 length: bufferLength,
                 type,
                 filterColumns,
-                dynamicLength,
             });
 
-            if (!data || data.length === 0) {
+            if (!data.data || data.data.length === 0) {
                 this.allRowsRead = true;
                 break;
             }
 
-            yield* data;
+            yield* data.data;
 
-            currentPosition += data.length;
+            currentPosition = data.lastRow + 1;
 
             if (currentPosition >= this.metadata.records) {
                 this.allRowsRead = true;

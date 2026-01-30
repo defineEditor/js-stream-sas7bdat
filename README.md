@@ -91,6 +91,8 @@ const filteredData = dataset.getData({
 console.log(filteredData);
 ```
 
+A BasicFilter object can also be used as a filter value (3rd argument of Filter class constructor).
+
 ## Methods
 
 ### `getMetadata`
@@ -120,7 +122,6 @@ Reads observations from the dataset.
   - `type` (DataType, optional): The type of the returned object ("array" or "object"). Defaults to "array".
   - `filterColumns` (string[], optional): The list of columns to return when type is "object". If empty, all columns are returned.
   - `filter` (Filter, optional): A Filter instance from js-array-filter package used to filter data records.
-  - `dynamicLength` (boolean, optional): When using a filter, this will dynamically adjust chunk size to optimize performance. Defaults to false.
 
 #### Returns
 
@@ -144,7 +145,6 @@ Reads observations as an iterable.
   - `bufferLength` (number, optional): The number of records to read in each chunk. Defaults to 1000.
   - `type` (DataType, optional): The type of data to return ("array" or "object"). Defaults to "array".
   - `filterColumns` (string[], optional): An array of column names to include in the returned data.
-  - `dynamicLength` (boolean, optional): When using a filter, this will dynamically adjust chunk size to optimize performance. Defaults to false.
 
 #### Returns
 
