@@ -47,7 +47,7 @@ test('Get filtered rows of dataset with simple "or" filter', async () => {
     expect(rows.data.length).toEqual(16);
 });
 
-test('Get filtered rows of dataset with dynamic length', async () => {
+test('Get filtered rows of dataset with length limit', async () => {
     const filePath = path.join(__dirname, '/data/sample.sas7bdat');
 
     const data = new DatasetSas7BDat(filePath);

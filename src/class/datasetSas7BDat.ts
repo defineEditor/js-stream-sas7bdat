@@ -190,7 +190,7 @@ class DatasetSas7BDat {
      * @param type - The type of the returned object.
      * @param filterColumns - The list of columns to return when type is object. If empty, all columns are returned.
      * @param filter - A filter class object used to filter data records when reading the dataset.
-     * @return An array of observations.
+     * @return An array of observations, last processed row number, and a flag indicating if the end of the dataset is reached.
      */
     async getData(props: {
         start?: number;
@@ -289,8 +289,8 @@ class DatasetSas7BDat {
                     });
                     if (
                         length === -1 ||
-                        currentRow + length >= this.metadata.records ||
-                        lengthLimitReached
+                        data.length + currentData.length >= length ||
+                        currentRow + length >= this.metadata.records
                     ) {
                         finishedReading = true;
                         if (length === -1) {
