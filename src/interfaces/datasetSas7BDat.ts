@@ -9,19 +9,18 @@ export type ItemType =
     | 'date'
     | 'time'
     | 'datetime'
-    | 'URI'
-    ;
+    | 'URI';
 
 // Target Variable Types
-export type ItemTargetType =
-    | 'integer'
-    | 'decimal';
+export type ItemTargetType = 'integer' | 'decimal';
 
 // Type of returned Object from getData
-export type ItemDataObject = { [name: string]: string | number | boolean | null };
+export type ItemDataObject = {
+    [name: string]: string | number | boolean | null;
+};
 
 // The first item in the data array needs to be a number (itemGroupDataSeq)
-export type ItemDataArray = Array<string | number | boolean | null >;
+export type ItemDataArray = Array<string | number | boolean | null>;
 
 // Source System interface
 export interface SourceSystem {
@@ -40,6 +39,8 @@ export interface Sas7BDatColumn {
     length?: number;
     displayFormat?: string; // SAS format
 }
+
+export type ReadStatColumn = Sas7BDatColumn;
 
 // Type of SAS7BDAT metadata from ReadStat;
 export interface Sas7BDatMetadata {
@@ -62,6 +63,8 @@ export interface Sas7BDatMetadata {
     is64Bit?: boolean;
 }
 
+export type ReadStatMetadata = Sas7BDatMetadata;
+
 // Definition for Variable in the Dataset
 export interface ItemDescription {
     // Unique identifier for Variable. Must correspond to ItemDef/@OID in Define-XML.
@@ -82,7 +85,6 @@ export interface ItemDescription {
     keySequence?: number;
 }
 
-
 // Definition for Dataset-JSON
 export interface Dataset {
     // Time of creation of the file containing the document.
@@ -100,7 +102,7 @@ export interface Dataset {
     // Data
     rows: Array<ItemDataArray>;
     // The date/time source database was last modified.
-    dbLastModifiedDateTime? : string;
+    dbLastModifiedDateTime?: string;
     // A unique identifier for this file.
     fileOID?: string;
     // The organization that generated the Dataset-JSON file.
@@ -124,14 +126,13 @@ export type MetadataAttributes = keyof DatasetMetadata;
 // Interface for checking which attributes are parsed
 export type ParsedAttributes = {
     [name in MetadataAttributes]: boolean;
-}
+};
 // Type of the object returned
 export type DataType = 'array' | 'object';
 export interface UniqueValues {
     [name: string]: {
-        values: (string | number | boolean | null)[]
-        counts: {[name: string]: number}
-
+        values: (string | number | boolean | null)[];
+        counts: { [name: string]: number };
     };
 }
 

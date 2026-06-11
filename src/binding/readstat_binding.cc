@@ -4,6 +4,8 @@
 #include <map>
 #include <string>
 #include <memory>
+#include <set>
+#include <algorithm>
 #include "./ReadStat/src/readstat.h"
 #include <ctime>
 #include <iomanip>
@@ -115,6 +117,90 @@ static Napi::Value convertObsValue(Napi::Env env, const ObsValue& obs) {
         default:
             return env.Null();
     }
+}
+
+typedef readstat_error_t (*readstat_parse_fn_t)(readstat_parser_t *parser, const char *path, void *user_ctx);
+
+struct format_binding_config_t {
+    const char *file_format;
+    const char *source_system;
+    readstat_parse_fn_t parse;
+};
+
+static const format_binding_config_t SAS7BDAT_FORMAT = {
+    "SAS7BDAT",
+    "SAS",
+    &readstat_parse_sas7bdat,
+};
+
+static const format_binding_config_t DTA_FORMAT = {
+    "DTA",
+    "Stata",
+    &readstat_parse_dta,
+};
+
+static const format_binding_config_t SAV_FORMAT = {
+    "SAV",
+    "SPSS",
+    &readstat_parse_sav,
+};
+
+static const format_binding_config_t POR_FORMAT = {
+    "POR",
+    "SPSS",
+    &readstat_parse_por,
+};
+
+static std::vector<std::string> parseStringArray(const Napi::Value& value, const char *fieldName) {
+    std::vector<std::string> result;
+    if (value.IsUndefined() || value.IsNull()) {
+        return result;
+    }
+    if (!value.IsArray()) {
+        throw Napi::TypeError::New(value.Env(), std::string(fieldName) + " must be an array of strings");
+    }
+
+    Napi::Array values = value.As<Napi::Array>();
+    result.reserve(values.Length());
+    for (uint32_t index = 0; index < values.Length(); index++) {
+        Napi::Value entry = values.Get(index);
+        if (!entry.IsString()) {
+            throw Napi::TypeError::New(value.Env(), std::string(fieldName) + " must be an array of strings");
+        }
+        result.push_back(entry.As<Napi::String>().Utf8Value());
+    }
+
+    return result;
+}
+
+static std::vector<long> parseLongArray(const Napi::Value& value, const char *fieldName) {
+    std::vector<long> result;
+    if (value.IsUndefined() || value.IsNull()) {
+        return result;
+    }
+    if (!value.IsArray()) {
+        throw Napi::TypeError::New(value.Env(), std::string(fieldName) + " must be an array of integers");
+    }
+
+    Napi::Array values = value.As<Napi::Array>();
+    result.reserve(values.Length());
+    for (uint32_t index = 0; index < values.Length(); index++) {
+        Napi::Value entry = values.Get(index);
+        if (!entry.IsNumber()) {
+            throw Napi::TypeError::New(value.Env(), std::string(fieldName) + " must be an array of integers");
+        }
+
+        long rowNumber = entry.As<Napi::Number>().Int64Value();
+        if (rowNumber < 0) {
+            throw Napi::RangeError::New(value.Env(), std::string(fieldName) + " values must be non-negative");
+        }
+        result.push_back(rowNumber);
+    }
+
+    std::sort(result.begin(), result.end());
+    result.erase(std::unique(result.begin(), result.end()), result.end());
+
+    return result;
 }
 
 struct async_context_t {
@@ -250,25 +336,59 @@ struct stream_context_t {
         Napi::Env env;
         Napi::FunctionReference callback;
         int var_count;
+        int selected_var_count;
         size_t chunk_size;
         long start_row;
         long rows_seen;
         long last_row;
         long chunk_start_row;
         bool stop_requested;
+        std::set<std::string> selected_columns;
         std::vector<std::vector<ObsValue>> chunk_rows;
         std::string error_message;
 
-        sync_stream_context_t(Napi::Env environment, const Napi::Function& callbackFunction, size_t stream_chunk_size, long row_start) :
+        sync_stream_context_t(
+            Napi::Env environment,
+            const Napi::Function& callbackFunction,
+            size_t stream_chunk_size,
+            long row_start,
+            const std::vector<std::string>& projectedColumns
+        ) :
             env(environment),
             callback(Napi::Persistent(callbackFunction)),
             var_count(0),
+            selected_var_count(0),
             chunk_size(stream_chunk_size),
             start_row(row_start),
             rows_seen(0),
             last_row(row_start - 1),
             chunk_start_row(row_start),
-            stop_requested(false) {}
+            stop_requested(false),
+            selected_columns(projectedColumns.begin(), projectedColumns.end()) {}
+    };
+
+    struct selected_read_context_t {
+        int var_count;
+        int selected_var_count;
+        long start_row;
+        long active_selected_obs_index;
+        std::set<std::string> selected_columns;
+        std::vector<long> selected_rows;
+        size_t next_selected_row_index;
+        std::vector<std::vector<ObsValue>> rows;
+
+        selected_read_context_t(
+            long row_start,
+            const std::vector<std::string>& projectedColumns,
+            const std::vector<long>& projectedRows
+        ) :
+            var_count(0),
+            selected_var_count(0),
+            start_row(row_start),
+                active_selected_obs_index(-1),
+            selected_columns(projectedColumns.begin(), projectedColumns.end()),
+            selected_rows(projectedRows),
+            next_selected_row_index(0) {}
     };
 
     static bool emit_sync_stream_chunk(sync_stream_context_t *context) {
@@ -329,27 +449,37 @@ struct stream_context_t {
     static int sync_stream_handle_metadata(readstat_metadata_t *metadata, void *ctx) {
         sync_stream_context_t *context = (sync_stream_context_t *)ctx;
         context->var_count = readstat_get_var_count(metadata);
+        context->selected_var_count = 0;
         return READSTAT_HANDLER_OK;
     }
 
     static int sync_stream_handle_variable(int index, readstat_variable_t *variable, const char *val_labels, void *ctx) {
+        sync_stream_context_t *context = (sync_stream_context_t *)ctx;
+        if (!context->selected_columns.empty()) {
+            const std::string variableName = readstat_variable_get_name(variable);
+            if (context->selected_columns.find(variableName) == context->selected_columns.end()) {
+                return READSTAT_HANDLER_SKIP_VARIABLE;
+            }
+        }
+
+        context->selected_var_count++;
         return READSTAT_HANDLER_OK;
     }
 
     static int sync_stream_handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t value, void *ctx) {
         sync_stream_context_t *context = (sync_stream_context_t *)ctx;
-        int var_idx = readstat_variable_get_index(variable);
+        int var_idx = readstat_variable_get_index_after_skipping(variable);
 
         if (var_idx == 0) {
             if (context->chunk_rows.empty()) {
                 context->chunk_start_row = context->start_row + context->rows_seen;
             }
-            context->chunk_rows.push_back(std::vector<ObsValue>(context->var_count));
+            context->chunk_rows.push_back(std::vector<ObsValue>(context->selected_var_count));
         }
 
         context->chunk_rows.back()[var_idx] = makeObsValue(variable, value);
 
-        if (var_idx == context->var_count - 1) {
+        if (var_idx == context->selected_var_count - 1) {
             context->rows_seen++;
             context->last_row = context->start_row + context->rows_seen - 1;
 
@@ -366,6 +496,91 @@ struct stream_context_t {
 
         return READSTAT_HANDLER_OK;
     }
+
+static int selected_read_handle_metadata(readstat_metadata_t *metadata, void *ctx) {
+    selected_read_context_t *context = (selected_read_context_t *)ctx;
+    context->var_count = readstat_get_var_count(metadata);
+    context->selected_var_count = 0;
+    return READSTAT_HANDLER_OK;
+}
+
+static int selected_read_handle_variable(int index, readstat_variable_t *variable, const char *val_labels, void *ctx) {
+    selected_read_context_t *context = (selected_read_context_t *)ctx;
+    if (!context->selected_columns.empty()) {
+        const std::string variableName = readstat_variable_get_name(variable);
+        if (context->selected_columns.find(variableName) == context->selected_columns.end()) {
+            return READSTAT_HANDLER_SKIP_VARIABLE;
+        }
+    }
+
+    context->selected_var_count++;
+    return READSTAT_HANDLER_OK;
+}
+
+static int selected_read_handle_row(long obs_index, void *ctx) {
+    selected_read_context_t *context = (selected_read_context_t *)ctx;
+    if (context->selected_rows.empty()) {
+        return READSTAT_HANDLER_OK;
+    }
+
+    long absoluteRow = context->start_row + obs_index;
+    while (
+        context->next_selected_row_index < context->selected_rows.size() &&
+        context->selected_rows[context->next_selected_row_index] < absoluteRow
+    ) {
+        context->next_selected_row_index++;
+    }
+
+    if (context->next_selected_row_index >= context->selected_rows.size()) {
+        return READSTAT_HANDLER_ABORT;
+    }
+
+    if (context->selected_rows[context->next_selected_row_index] > absoluteRow) {
+        return READSTAT_HANDLER_SKIP_ROW;
+    }
+
+    context->active_selected_obs_index = obs_index;
+    context->next_selected_row_index++;
+    return READSTAT_HANDLER_OK;
+}
+
+static int selected_read_handle_value(int obs_index, readstat_variable_t *variable, readstat_value_t value, void *ctx) {
+    selected_read_context_t *context = (selected_read_context_t *)ctx;
+    int var_idx = readstat_variable_get_index_after_skipping(variable);
+
+    if (!context->selected_rows.empty() && context->active_selected_obs_index != obs_index) {
+        long absoluteRow = context->start_row + obs_index;
+        while (
+            context->next_selected_row_index < context->selected_rows.size() &&
+            context->selected_rows[context->next_selected_row_index] < absoluteRow
+        ) {
+            context->next_selected_row_index++;
+        }
+
+        if (context->next_selected_row_index >= context->selected_rows.size()) {
+            return READSTAT_HANDLER_ABORT;
+        }
+
+        if (context->selected_rows[context->next_selected_row_index] > absoluteRow) {
+            return READSTAT_HANDLER_OK;
+        }
+
+        context->active_selected_obs_index = obs_index;
+        context->next_selected_row_index++;
+    }
+
+    if (var_idx == 0) {
+        context->rows.push_back(std::vector<ObsValue>(context->selected_var_count));
+    }
+
+    context->rows.back()[var_idx] = makeObsValue(variable, value);
+
+    if (var_idx == context->selected_var_count - 1) {
+        context->active_selected_obs_index = -1;
+    }
+
+    return READSTAT_HANDLER_OK;
+}
 
 class ReadStatStreamWorker : public Napi::AsyncWorker {
 public:
@@ -631,8 +846,19 @@ static int stream_handle_value(int obs_index, readstat_variable_t *variable, rea
 
 class ReadStatWorker : public Napi::AsyncWorker {
 public:
-    ReadStatWorker(Napi::Env& env, std::string filePath, long offset, long limit)
-        : Napi::AsyncWorker(env), filePath(filePath), offset(offset), limit(limit), deferred(Napi::Promise::Deferred::New(env)) {}
+    ReadStatWorker(
+        Napi::Env& env,
+        std::string filePath,
+        long offset,
+        long limit,
+        const format_binding_config_t& formatConfig
+    )
+        : Napi::AsyncWorker(env),
+          filePath(filePath),
+          offset(offset),
+          limit(limit),
+          formatConfig(formatConfig),
+          deferred(Napi::Promise::Deferred::New(env)) {}
 
     Napi::Promise GetPromise() { return deferred.Promise(); }
 
@@ -647,11 +873,11 @@ protected:
         readstat_set_variable_handler(parser, &async_handle_variable);
         readstat_set_value_handler(parser, &async_handle_value);
 
-        readstat_error_t error = readstat_parse_sas7bdat(parser, filePath.c_str(), &context);
+        readstat_error_t error = formatConfig.parse(parser, filePath.c_str(), &context);
         readstat_parser_free(parser);
 
         if (error != READSTAT_OK) {
-            context.error_message = "Failed to parse SAS7BDAT file: ";
+            context.error_message = std::string("Failed to parse ") + formatConfig.file_format + " file: ";
             context.error_message += readstat_error_message(error);
             SetError(context.error_message);
         }
@@ -680,6 +906,7 @@ private:
     std::string filePath;
     long offset;
     long limit;
+    const format_binding_config_t& formatConfig;
     async_context_t context;
     Napi::Promise::Deferred deferred;
 };
@@ -870,7 +1097,32 @@ static int handle_variable_metadata(int index, readstat_variable_t *variable, co
 }
 
 // Get metadata from SAS7BDAT file - enhanced version with comprehensive metadata
-Napi::Value GetSAS7BDATMetadata(const Napi::CallbackInfo& info) {
+static void apply_format_metadata(
+    metadata_context_t *context,
+    const format_binding_config_t& formatConfig,
+    const std::string& filePath
+) {
+    // Get file name from path for the name field
+    std::string fileName = filePath.substr(filePath.find_last_of("/\\") + 1);
+    fileName = fileName.substr(0, fileName.find_last_of("."));
+
+    if (context->dataset.Get("name").ToString().Utf8Value().empty()) {
+        context->dataset.Set("name", Napi::String::New(context->env, fileName));
+    }
+
+    context->dataset.Set("filePath", Napi::String::New(context->env, filePath));
+    context->dataset.Set("fileFormat", Napi::String::New(context->env, formatConfig.file_format));
+
+    Napi::Object sourceSystem = Napi::Object::New(context->env);
+    sourceSystem.Set("name", Napi::String::New(context->env, formatConfig.source_system));
+    int formatVersion = readstat_get_file_format_version(context->metadata);
+    if (formatVersion > 0) {
+        sourceSystem.Set("version", Napi::String::New(context->env, std::to_string(formatVersion)));
+    }
+    context->dataset.Set("sourceSystem", sourceSystem);
+}
+
+static Napi::Value GetFormatMetadata(const Napi::CallbackInfo& info, const format_binding_config_t& formatConfig) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -885,39 +1137,41 @@ Napi::Value GetSAS7BDATMetadata(const Napi::CallbackInfo& info) {
     readstat_set_metadata_handler(parser, &handle_metadata_only);
     readstat_set_variable_handler(parser, &handle_variable_metadata);
 
-    readstat_error_t error = readstat_parse_sas7bdat(parser, filePath.c_str(), &context);
+    readstat_error_t error = formatConfig.parse(parser, filePath.c_str(), &context);
 
     if (error != READSTAT_OK) {
-        std::string errorMsg = "Failed to parse SAS7BDAT metadata: ";
+        std::string errorMsg = std::string("Failed to parse ") + formatConfig.file_format + " metadata: ";
         errorMsg += readstat_error_message(error);
         readstat_parser_free(parser);
         Napi::Error::New(env, errorMsg).ThrowAsJavaScriptException();
         return env.Null();
     }
 
-    // Get file name from path for the name field
-    std::string fileName = filePath.substr(filePath.find_last_of("/\\") + 1);
-    fileName = fileName.substr(0, fileName.find_last_of("."));
+    apply_format_metadata(&context, formatConfig, filePath);
 
-    // If the name field is empty, use the file name
-    if (context.dataset.Get("name").ToString().Utf8Value().empty()) {
-        context.dataset.Set("name", Napi::String::New(env, fileName));
-    }
-
-    // Add file path for reference
-    context.dataset.Set("filePath", Napi::String::New(env, filePath));
-
-    // Add file format information
-    context.dataset.Set("fileFormat", Napi::String::New(env, "SAS7BDAT"));
-
-    // Cleanup
     readstat_parser_free(parser);
 
     return context.dataset;
 }
 
+Napi::Value GetSAS7BDATMetadata(const Napi::CallbackInfo& info) {
+    return GetFormatMetadata(info, SAS7BDAT_FORMAT);
+}
+
+Napi::Value GetDTAMetadata(const Napi::CallbackInfo& info) {
+    return GetFormatMetadata(info, DTA_FORMAT);
+}
+
+Napi::Value GetSAVMetadata(const Napi::CallbackInfo& info) {
+    return GetFormatMetadata(info, SAV_FORMAT);
+}
+
+Napi::Value GetPORMetadata(const Napi::CallbackInfo& info) {
+    return GetFormatMetadata(info, POR_FORMAT);
+}
+
 // Node.js binding
-Napi::Value ReadSas7bdat(const Napi::CallbackInfo& info) {
+static Napi::Value ReadFormat(const Napi::CallbackInfo& info, const format_binding_config_t& formatConfig) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -961,11 +1215,11 @@ Napi::Value ReadSas7bdat(const Napi::CallbackInfo& info) {
     readstat_set_variable_handler(parser, &handle_variable);
     readstat_set_value_handler(parser, &handle_value);
 
-    readstat_error_t error = readstat_parse_sas7bdat(parser, filePath.c_str(), &context);
+    readstat_error_t error = formatConfig.parse(parser, filePath.c_str(), &context);
     readstat_parser_free(parser);
 
     if (error != READSTAT_OK) {
-        std::string errorMsg = "Failed to parse SAS7BDAT file: ";
+        std::string errorMsg = std::string("Failed to parse ") + formatConfig.file_format + " file: ";
         errorMsg += readstat_error_message(error);
         Napi::Error::New(env, errorMsg).ThrowAsJavaScriptException();
         return env.Null();
@@ -984,8 +1238,24 @@ Napi::Value ReadSas7bdat(const Napi::CallbackInfo& info) {
     return result;
 }
 
+Napi::Value ReadSas7bdat(const Napi::CallbackInfo& info) {
+    return ReadFormat(info, SAS7BDAT_FORMAT);
+}
+
+Napi::Value ReadDta(const Napi::CallbackInfo& info) {
+    return ReadFormat(info, DTA_FORMAT);
+}
+
+Napi::Value ReadSav(const Napi::CallbackInfo& info) {
+    return ReadFormat(info, SAV_FORMAT);
+}
+
+Napi::Value ReadPor(const Napi::CallbackInfo& info) {
+    return ReadFormat(info, POR_FORMAT);
+}
+
 // Async wrapper around ReadStat
-Napi::Value ReadSas7bdatAsync(const Napi::CallbackInfo& info) {
+static Napi::Value ReadFormatAsync(const Napi::CallbackInfo& info, const format_binding_config_t& formatConfig) {
     Napi::Env env = info.Env();
 
     if (info.Length() < 1) {
@@ -1015,17 +1285,99 @@ Napi::Value ReadSas7bdatAsync(const Napi::CallbackInfo& info) {
         }
     }
 
-    ReadStatWorker* worker = new ReadStatWorker(env, filePath, row_offset, row_limit);
+    ReadStatWorker* worker = new ReadStatWorker(env, filePath, row_offset, row_limit, formatConfig);
     worker->Queue();
     return worker->GetPromise();
 }
 
-Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
+Napi::Value ReadSas7bdatAsync(const Napi::CallbackInfo& info) {
+    return ReadFormatAsync(info, SAS7BDAT_FORMAT);
+}
+
+Napi::Value ReadDtaAsync(const Napi::CallbackInfo& info) {
+    return ReadFormatAsync(info, DTA_FORMAT);
+}
+
+Napi::Value ReadSavAsync(const Napi::CallbackInfo& info) {
+    return ReadFormatAsync(info, SAV_FORMAT);
+}
+
+Napi::Value ReadPorAsync(const Napi::CallbackInfo& info) {
+    return ReadFormatAsync(info, POR_FORMAT);
+}
+
+static Napi::Value ReadFormatStream(const Napi::CallbackInfo& info, const format_binding_config_t& formatConfig) {
     Napi::Env env = info.Env();
 
-    if (info.Length() < 3) {
+    if (info.Length() < 1) {
         Napi::TypeError::New(env, "Wrong number of arguments").ThrowAsJavaScriptException();
         return env.Null();
+    }
+
+    std::string filePath = info[0].As<Napi::String>().Utf8Value();
+    const bool isStreamingMode =
+        info.Length() > 2 &&
+        info[1].IsNumber() &&
+        info[2].IsFunction();
+
+    if (!isStreamingMode) {
+        std::vector<std::string> projectedColumns;
+        std::vector<long> selectedRows;
+        long rowOffset = 0;
+
+        try {
+            if (info.Length() > 1) {
+                projectedColumns = parseStringArray(info[1], "Selected columns");
+            }
+            if (info.Length() > 2) {
+                selectedRows = parseLongArray(info[2], "Selected rows");
+            }
+        } catch (const Napi::Error& error) {
+            error.ThrowAsJavaScriptException();
+            return env.Null();
+        }
+
+        if (info.Length() > 3 && info[3].IsNumber()) {
+            rowOffset = info[3].As<Napi::Number>().Int64Value();
+            if (rowOffset < 0) {
+                Napi::RangeError::New(env, "Row offset must be non-negative").ThrowAsJavaScriptException();
+                return env.Null();
+            }
+        } else if (!selectedRows.empty()) {
+            rowOffset = selectedRows.front();
+        }
+
+        selected_read_context_t context(rowOffset, projectedColumns, selectedRows);
+        readstat_parser_t *parser = readstat_parser_init();
+        if (rowOffset > 0) {
+            readstat_set_row_offset(parser, rowOffset);
+        }
+
+        readstat_set_metadata_handler(parser, &selected_read_handle_metadata);
+        readstat_set_variable_handler(parser, &selected_read_handle_variable);
+        readstat_set_row_handler(parser, &selected_read_handle_row);
+        readstat_set_value_handler(parser, &selected_read_handle_value);
+
+        readstat_error_t error = formatConfig.parse(parser, filePath.c_str(), &context);
+        readstat_parser_free(parser);
+
+        if (error != READSTAT_OK && !(error == READSTAT_ERROR_USER_ABORT && !selectedRows.empty() && context.next_selected_row_index >= context.selected_rows.size())) {
+            std::string errorMsg = std::string("Failed to parse ") + formatConfig.file_format + " file: ";
+            errorMsg += readstat_error_message(error);
+            Napi::Error::New(env, errorMsg).ThrowAsJavaScriptException();
+            return env.Null();
+        }
+
+        Napi::Array result = Napi::Array::New(env, context.rows.size());
+        for (size_t rowIndex = 0; rowIndex < context.rows.size(); rowIndex++) {
+            Napi::Array row = Napi::Array::New(env, context.rows[rowIndex].size());
+            for (size_t columnIndex = 0; columnIndex < context.rows[rowIndex].size(); columnIndex++) {
+                row[columnIndex] = convertObsValue(env, context.rows[rowIndex][columnIndex]);
+            }
+            result[rowIndex] = row;
+        }
+
+        return result;
     }
 
     if (!info[1].IsNumber()) {
@@ -1038,7 +1390,6 @@ Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
         return env.Null();
     }
 
-    std::string filePath = info[0].As<Napi::String>().Utf8Value();
     long chunk_size = info[1].As<Napi::Number>().Int64Value();
     if (chunk_size <= 0) {
         Napi::RangeError::New(env, "Chunk size must be a positive integer").ThrowAsJavaScriptException();
@@ -1054,11 +1405,22 @@ Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
         }
     }
 
+    std::vector<std::string> projectedColumns;
+    try {
+        if (info.Length() > 4) {
+            projectedColumns = parseStringArray(info[4], "Selected columns");
+        }
+    } catch (const Napi::Error& error) {
+        error.ThrowAsJavaScriptException();
+        return env.Null();
+    }
+
     sync_stream_context_t context(
         env,
         info[2].As<Napi::Function>(),
         static_cast<size_t>(chunk_size),
-        row_offset
+        row_offset,
+        projectedColumns
     );
 
     readstat_parser_t *parser = readstat_parser_init();
@@ -1070,7 +1432,7 @@ Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
     readstat_set_variable_handler(parser, &sync_stream_handle_variable);
     readstat_set_value_handler(parser, &sync_stream_handle_value);
 
-    readstat_error_t error = readstat_parse_sas7bdat(parser, filePath.c_str(), &context);
+    readstat_error_t error = formatConfig.parse(parser, filePath.c_str(), &context);
     readstat_parser_free(parser);
 
     bool endReached = error == READSTAT_OK;
@@ -1086,7 +1448,7 @@ Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
         if (!context.error_message.empty()) {
             Napi::Error::New(env, context.error_message).ThrowAsJavaScriptException();
         } else {
-            std::string errorMessage = "Failed to stream SAS7BDAT file: ";
+            std::string errorMessage = std::string("Failed to stream ") + formatConfig.file_format + " file: ";
             errorMessage += readstat_error_message(error);
             Napi::Error::New(env, errorMessage).ThrowAsJavaScriptException();
         }
@@ -1099,11 +1461,39 @@ Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
     return result;
 }
 
+Napi::Value ReadSas7bdatStream(const Napi::CallbackInfo& info) {
+    return ReadFormatStream(info, SAS7BDAT_FORMAT);
+}
+
+Napi::Value ReadDtaStream(const Napi::CallbackInfo& info) {
+    return ReadFormatStream(info, DTA_FORMAT);
+}
+
+Napi::Value ReadSavStream(const Napi::CallbackInfo& info) {
+    return ReadFormatStream(info, SAV_FORMAT);
+}
+
+Napi::Value ReadPorStream(const Napi::CallbackInfo& info) {
+    return ReadFormatStream(info, POR_FORMAT);
+}
+
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("readSas7bdat", Napi::Function::New(env, ReadSas7bdat));
     exports.Set("readSas7bdatAsync", Napi::Function::New(env, ReadSas7bdatAsync));
     exports.Set("readSas7bdatStream", Napi::Function::New(env, ReadSas7bdatStream));
     exports.Set("getSAS7BDATMetadata", Napi::Function::New(env, GetSAS7BDATMetadata));
+    exports.Set("readDta", Napi::Function::New(env, ReadDta));
+    exports.Set("readDtaAsync", Napi::Function::New(env, ReadDtaAsync));
+    exports.Set("readDtaStream", Napi::Function::New(env, ReadDtaStream));
+    exports.Set("getDTAMetadata", Napi::Function::New(env, GetDTAMetadata));
+    exports.Set("readSav", Napi::Function::New(env, ReadSav));
+    exports.Set("readSavAsync", Napi::Function::New(env, ReadSavAsync));
+    exports.Set("readSavStream", Napi::Function::New(env, ReadSavStream));
+    exports.Set("getSAVMetadata", Napi::Function::New(env, GetSAVMetadata));
+    exports.Set("readPor", Napi::Function::New(env, ReadPor));
+    exports.Set("readPorAsync", Napi::Function::New(env, ReadPorAsync));
+    exports.Set("readPorStream", Napi::Function::New(env, ReadPorStream));
+    exports.Set("getPORMetadata", Napi::Function::New(env, GetPORMetadata));
     return exports;
 }
 

@@ -1,13 +1,13 @@
 import DatasetReadStat, { DatasetReadStatOptions } from './datasetReadStat';
 
-class DatasetSas7BDat extends DatasetReadStat {
+class DatasetStata extends DatasetReadStat {
     constructor(
         filePath: string,
         options?: Omit<DatasetReadStatOptions, 'format'>,
     ) {
-        super(filePath, { ...options, format: 'sas7bdat' });
+        super(filePath, { ...options, format: 'dta' });
     }
 }
 
-export default DatasetSas7BDat;
-export { DatasetSas7BDat };
+export default DatasetStata;
+export { DatasetStata };

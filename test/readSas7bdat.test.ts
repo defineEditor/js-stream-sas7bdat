@@ -81,7 +81,7 @@ describe('readSas7bdat Native Function', () => {
 
     runTest()('should stream rows in chunks and stop early', async () => {
         const streamedRows: unknown[][] = [];
-        const result = await readSas7bdatStream(
+        const result = readSas7bdatStream(
             sampleFilePath,
             3,
             (rows: unknown[][], _startRow: number) => {
@@ -102,6 +102,21 @@ describe('readSas7bdat Native Function', () => {
         expect(streamedRows).toHaveLength(5);
         expect(result.lastRow).toEqual(4);
         expect(result.endReached).toEqual(false);
+    });
+
+    runTest()('should read projected columns for selected rows', () => {
+        const rows = readSas7bdatStream(
+            sampleFilePath,
+            ['Name', 'Sex'],
+            [0, 3, 5],
+            0,
+        );
+
+        expect(rows).toEqual([
+            ['Alfred', 'M'],
+            ['Carol', 'F'],
+            ['James', 'M'],
+        ]);
     });
 
     test('should throw error with invalid file path', () => {
