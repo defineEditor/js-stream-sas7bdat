@@ -64,6 +64,11 @@ readstat_error_t readstat_set_fweight_handler(readstat_parser_t *parser, readsta
     return READSTAT_OK;
 }
 
+readstat_error_t readstat_set_row_handler(readstat_parser_t *parser, readstat_row_handler row_handler) {
+    parser->handlers.row = row_handler;
+    return READSTAT_OK;
+}
+
 readstat_error_t readstat_set_open_handler(readstat_parser_t *parser, readstat_open_handler open_handler) {
     parser->io->open = open_handler;
     return READSTAT_OK;

@@ -1,9 +1,11 @@
+import DatasetSas7BDat from '../src/index';
 import path from 'path';
 import fs from 'fs';
 const projectRoot = path.resolve(__dirname, '..');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const binding = require('node-gyp-build')(projectRoot);
 const readSas7bdat = binding.readSas7bdat;
+const readSas7bdatStream = binding.readSas7bdatStream;
 
 // File path to the sample SAS7BDAT file for testing
 const sampleFilePath = path.join(__dirname, '/data/sample.sas7bdat');
@@ -25,18 +27,23 @@ describe('readSas7bdat Native Function', () => {
         return test;
     };
 
-    runTest()('should read all rows when no optional parameters are provided', () => {
-        const result = readSas7bdat(sampleFilePath);
-        expect(Array.isArray(result)).toBe(true);
-        expect(result.length).toBeGreaterThan(0);
+    runTest()(
+        'should read all rows when no optional parameters are provided',
+        () => {
+            const result = readSas7bdat(sampleFilePath);
+            expect(Array.isArray(result)).toBe(true);
+            expect(result.length).toBeGreaterThan(0);
 
-        // Each row should be an array
-        expect(Array.isArray(result[0])).toBe(true);
-        // Values in the row should have proper types (string, number, or null)
-        result[0].forEach((value: string) => {
-            expect(['string', 'number', 'object'].includes(typeof value)).toBe(true);
-        });
-    });
+            // Each row should be an array
+            expect(Array.isArray(result[0])).toBe(true);
+            // Values in the row should have proper types (string, number, or null)
+            result[0].forEach((value: string) => {
+                expect(
+                    ['string', 'number', 'object'].includes(typeof value),
+                ).toBe(true);
+            });
+        },
+    );
 
     runTest()('should read with specified start row', () => {
         const startRow = 2;
@@ -47,7 +54,9 @@ describe('readSas7bdat Native Function', () => {
 
         // If there are enough rows, partialRows should be shorter than allRows
         if (allRows.length > startRow) {
-            expect(partialRows.length).toBeLessThanOrEqual(allRows.length - startRow);
+            expect(partialRows.length).toBeLessThanOrEqual(
+                allRows.length - startRow,
+            );
         }
     });
 
@@ -59,13 +68,56 @@ describe('readSas7bdat Native Function', () => {
         expect(rows.length).toBeLessThanOrEqual(rowCount);
     });
 
-    runTest()('should read rows with both start row and row count specified', () => {
-        const startRow = 3;
-        const rowCount = 4;
-        const rows = readSas7bdat(sampleFilePath, startRow, rowCount);
+    runTest()(
+        'should read rows with both start row and row count specified',
+        () => {
+            const startRow = 3;
+            const rowCount = 4;
+            const rows = readSas7bdat(sampleFilePath, startRow, rowCount);
 
-        expect(Array.isArray(rows)).toBe(true);
-        expect(rows.length).toBeLessThanOrEqual(rowCount);
+            expect(Array.isArray(rows)).toBe(true);
+            expect(rows.length).toBeLessThanOrEqual(rowCount);
+        },
+    );
+
+    runTest()('should stream rows in chunks and stop early', async () => {
+        const streamedRows: unknown[][] = [];
+        const result = readSas7bdatStream(
+            sampleFilePath,
+            3,
+            (rows: unknown[][], _startRow: number) => {
+                const rowsNeeded = Math.min(
+                    5 - streamedRows.length,
+                    rows.length,
+                );
+                streamedRows.push(...rows.slice(0, rowsNeeded));
+
+                if (streamedRows.length === 5) {
+                    return rowsNeeded;
+                }
+
+                return undefined;
+            },
+        );
+
+        expect(streamedRows).toHaveLength(5);
+        expect(result.lastRow).toEqual(4);
+        expect(result.endReached).toEqual(false);
+    });
+
+    runTest()('should read projected columns for selected rows', () => {
+        const rows = readSas7bdatStream(
+            sampleFilePath,
+            ['Name', 'Sex'],
+            [0, 3, 5],
+            0,
+        );
+
+        expect(rows).toEqual([
+            ['Alfred', 'M'],
+            ['Carol', 'F'],
+            ['James', 'M'],
+        ]);
     });
 
     test('should throw error with invalid file path', () => {
@@ -85,5 +137,27 @@ describe('readSas7bdat Native Function', () => {
         expect(() => {
             readSas7bdat(sampleFilePath, 0, -5); // -1 is valid but -5 is not
         }).toThrow(/Row limit must be positive or -1/);
+    });
+});
+
+test('Get projected object rows with finite length across multiple chunks', async () => {
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
+    const data = new DatasetSas7BDat(filePath);
+    const rows = await data.getData({
+        start: 0,
+        length: 3,
+        type: 'object',
+        filterColumns: ['WEIGHT', 'NAME'],
+        chunkSize: 2,
+    });
+
+    expect(rows).toEqual({
+        data: [
+            { Weight: 112.5, Name: 'Alfred' },
+            { Weight: 84, Name: 'Alice' },
+            { Weight: 98, Name: 'Barbara' },
+        ],
+        lastRow: 2,
+        endReached: false,
     });
 });

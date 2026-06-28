@@ -1,5 +1,22 @@
 # Changelog
 
+## [0.2.0]
+* Breaking change: getData return signature changed to { data: ItemDataArray[]|ItemDataObject[] , lastRow: number, endReached: boolean}
+* Removed dynamicLength due to inefficiency
+
+## [0.1.9]
+* Fixing issues
+
+## [0.1.8]
+* Filter in getData can now be a BasicFilter object
+
+## [0.1.7]
+* Updating dependencies
+
+## [0.1.6]
+* Fixing an issue with missing dataset label
+* Updating dependencies
+
 ## [0.1.5]
 * Audit Fix
 

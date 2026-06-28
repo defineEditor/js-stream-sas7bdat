@@ -1,6 +1,6 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
-exports[`Get filtered rows of dataset with dynamic length 1`] = `
+exports[`Get filtered rows of dataset with length limit 1`] = `
 [
   [
     "Alfred",

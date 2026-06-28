@@ -44,8 +44,44 @@ exports[`Get metadata 1`] = `
   "datasetJSONCreationDateTime": "2019-09-09T13:43:00.000Z",
   "datasetJSONVersion": "",
   "dbLastModifiedDateTime": "2019-09-12T11:15:54.000Z",
-  "label": "CLASS",
-  "name": "sample",
+  "label": "",
+  "name": "CLASS",
   "records": 19,
+}
+`;
+
+exports[`Get metadata for dataset with label 1`] = `
+{
+  "columns": [
+    {
+      "dataType": "string",
+      "itemOID": "IT.ID",
+      "label": "ID",
+      "length": 8,
+      "name": "ID",
+    },
+    {
+      "dataType": "string",
+      "displayFormat": "$A",
+      "itemOID": "IT.SEXA",
+      "label": "SEXA",
+      "length": 8,
+      "name": "SEXA",
+    },
+    {
+      "dataType": "string",
+      "displayFormat": "$B",
+      "itemOID": "IT.SEXB",
+      "label": "SEXB",
+      "length": 8,
+      "name": "SEXB",
+    },
+  ],
+  "datasetJSONCreationDateTime": "2018-08-16T09:14:00.000Z",
+  "datasetJSONVersion": "",
+  "dbLastModifiedDateTime": "2018-08-16T09:14:00.000Z",
+  "label": "mytest label",
+  "name": "TEST_DATA",
+  "records": 3,
 }
 `;
