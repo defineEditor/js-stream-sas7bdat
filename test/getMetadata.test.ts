@@ -2,7 +2,7 @@ import DatasetSas7BDat from '../src/index';
 import path from 'path';
 
 test('Get metadata', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
 
     const data = new DatasetSas7BDat(filePath);
     const metadata = await data.getMetadata();
@@ -10,7 +10,7 @@ test('Get metadata', async () => {
 });
 
 test('Get metadata for dataset with label', async () => {
-    const filePath = path.join(__dirname, '/data/sampleLabel.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sampleLabel.sas7bdat');
 
     const data = new DatasetSas7BDat(filePath);
     const metadata = await data.getMetadata();

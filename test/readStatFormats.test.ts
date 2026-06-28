@@ -1,8 +1,9 @@
 import path from 'path';
 import { DatasetSpss, DatasetStata } from '../src/index';
 
-const sampleDTA = path.join(__dirname, '/data/sample.dta');
-const sampleSAV = path.join(__dirname, '/data/sample.sav');
+const sampleDTA = path.join(__dirname, 'data', 'sample.dta');
+const sampleSAV = path.join(__dirname, 'data', 'sample.sav');
+const samplePOR = path.join(__dirname, 'data', 'sample.por');
 
 describe('DatasetStata', () => {
     test('reads metadata for sample.dta', async () => {
@@ -176,6 +177,95 @@ describe('DatasetSpss', () => {
                 start: 1,
                 length: 2,
                 filterColumns: ['myord', 'mynum'],
+            }),
+        ).resolves.toEqual({
+            data: [
+                [2, 1.2],
+                [3, -1000.3],
+            ],
+            lastRow: 2,
+            endReached: false,
+        });
+    });
+    test('reads metadata for sample.por', async () => {
+        const data = new DatasetSpss(samplePOR);
+
+        await expect(data.getMetadata()).resolves.toMatchObject({
+            records: 5,
+            name: 'sample',
+            label: '',
+            columns: [
+                {
+                    itemOID: 'IT.MYCHAR',
+                    name: 'MYCHAR',
+                    dataType: 'string',
+                    displayFormat: 'A1',
+                },
+                {
+                    itemOID: 'IT.MYNUM',
+                    name: 'MYNUM',
+                    dataType: 'double',
+                    displayFormat: 'F8.2',
+                },
+                {
+                    itemOID: 'IT.MYDATE',
+                    name: 'MYDATE',
+                    dataType: 'double',
+                    displayFormat: 'EDATE10',
+                },
+                {
+                    itemOID: 'IT.DTIME',
+                    name: 'DTIME',
+                    dataType: 'double',
+                    displayFormat: 'DATETIME20',
+                },
+                {
+                    itemOID: 'IT.MYLABL',
+                    name: 'MYLABL',
+                    dataType: 'double',
+                    displayFormat: 'F8.2',
+                },
+                {
+                    itemOID: 'IT.MYORD',
+                    name: 'MYORD',
+                    dataType: 'double',
+                    displayFormat: 'F8.2',
+                },
+                {
+                    itemOID: 'IT.MYTIME',
+                    name: 'MYTIME',
+                    dataType: 'double',
+                    displayFormat: 'TIME8',
+                },
+            ],
+        });
+    });
+
+    test('reads sample.por rows and chunked subsets', async () => {
+        const data = new DatasetSpss(samplePOR);
+
+        await expect(
+            data.getData({
+                start: 0,
+                length: 5,
+            }),
+        ).resolves.toEqual({
+            data: [
+                ['a', 1.1, 13744944000, 13744980610, 1, 1, 36610],
+                ['b', 1.2, 9390124800, 9390161410, 2, 2, 83410],
+                ['c', -1000.3, 11903760000, 11903760000, 1, 3, 0],
+                ['d', -1.4, 6825600, 6825600, 2, 1, 58210],
+                ['e', 1000.3, null, null, 1, 1, null],
+            ],
+            lastRow: 4,
+            endReached: true,
+        });
+
+        await expect(
+            data.getData({
+                start: 1,
+                length: 2,
+                filterColumns: ['MYORD', 'MYNUM'],
             }),
         ).resolves.toEqual({
             data: [

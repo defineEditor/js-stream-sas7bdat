@@ -59,21 +59,21 @@ const READSTAT_BINDINGS: Record<ReadStatBindingFormat, ReadStatBindingAdapter> =
             read: binding.readDta,
             readAsync: binding.readDtaAsync,
             readStream: binding.readDtaStream,
-            getMetadata: binding.getDTAMetadata,
+            getMetadata: binding.getDtaMetadata,
         },
         sav: {
             format: 'sav',
             read: binding.readSav,
             readAsync: binding.readSavAsync,
             readStream: binding.readSavStream,
-            getMetadata: binding.getSAVMetadata,
+            getMetadata: binding.getSavMetadata,
         },
         por: {
             format: 'por',
             read: binding.readPor,
             readAsync: binding.readPorAsync,
             readStream: binding.readPorStream,
-            getMetadata: binding.getPORMetadata,
+            getMetadata: binding.getPorMetadata,
         },
     };
 

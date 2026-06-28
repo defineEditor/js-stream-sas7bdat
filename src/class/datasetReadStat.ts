@@ -94,15 +94,12 @@ class DatasetReadStat {
     }
 
     private formatTimestamp(timestamp?: number): string {
-        if (
-            typeof timestamp !== 'number' ||
-                    !Number.isFinite(timestamp)
-        ) {
+        if (typeof timestamp !== 'number' || !Number.isFinite(timestamp)) {
             return '';
         }
 
         return new Date(timestamp * 1000).toISOString();
-    };
+    }
 
     async getMetadata(forceReload?: boolean): Promise<DatasetMetadata> {
         if (this.metadataLoaded && !forceReload) {
@@ -306,10 +303,18 @@ class DatasetReadStat {
             this.filePath,
             chunkSize,
             (chunkRows: ItemDataArray[]) => {
-                rows.push(...chunkRows);
+                if (length === -1) {
+                    rows.push(...chunkRows);
+                    return undefined;
+                }
 
-                if (length !== -1) {
-                    return chunkRows.length;
+                const remainingRows = length - rows.length;
+                const rowsToTake = Math.min(chunkRows.length, remainingRows);
+
+                rows.push(...chunkRows.slice(0, rowsToTake));
+
+                if (rows.length >= length) {
+                    return rowsToTake;
                 }
 
                 return undefined;

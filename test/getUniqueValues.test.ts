@@ -2,7 +2,7 @@ import DatasetSas7BDat from '../src/index';
 import path from 'path';
 
 test('Get unique values of variables', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const data = new DatasetSas7BDat(filePath);
     const values = await data.getUniqueValues({
         columns: ['NAME', 'AGE', 'WEIGHT'],
@@ -12,7 +12,7 @@ test('Get unique values of variables', async () => {
 });
 
 test('Get unique values of variables and do not sort the result', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const data = new DatasetSas7BDat(filePath);
     const values = await data.getUniqueValues({
         columns: ['NAME', 'HEIGHT', 'WEIGHT'],
@@ -24,7 +24,7 @@ test('Get unique values of variables and do not sort the result', async () => {
 });
 
 test('Get unique values with counts', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const data = new DatasetSas7BDat(filePath);
     const values = await data.getUniqueValues({
         columns: ['NAME', 'AGE', 'WEIGHT'],
@@ -36,7 +36,7 @@ test('Get unique values with counts', async () => {
 });
 
 test('Get projected object rows without filter', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const data = new DatasetSas7BDat(filePath);
     const rows = await data.getData({
         start: 0,
@@ -57,7 +57,7 @@ test('Get projected object rows without filter', async () => {
 });
 
 test('Get projected array rows without filter preserves requested order', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const data = new DatasetSas7BDat(filePath);
     const rows = await data.getData({
         start: 1,
@@ -77,7 +77,7 @@ test('Get projected array rows without filter preserves requested order', async 
 });
 
 test('Read projected object records across multiple buffers', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const data = new DatasetSas7BDat(filePath);
     const rows = [];
 

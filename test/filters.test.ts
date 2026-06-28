@@ -110,7 +110,7 @@ test('Check Last Row is correct', async () => {
 });
 
 test('Last Row is correctly set when length limit is reached', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
 
     const data = new DatasetSas7BDat(filePath);
 
@@ -131,7 +131,7 @@ test('Last Row is correctly set when length limit is reached', async () => {
 });
 
 test('Chunked filtered reads stop early and preserve last row', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
 
     const data = new DatasetSas7BDat(filePath);
 

@@ -11,7 +11,7 @@ import {
 } from '../src/index';
 
 test('Factory returns SAS reader for sas7bdat files', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
 
     const data = createDatasetReader(filePath);
 
@@ -25,21 +25,21 @@ test('Native binding exposes separate format readers', () => {
     expect(typeof binding.readDta).toEqual('function');
     expect(typeof binding.readDtaAsync).toEqual('function');
     expect(typeof binding.readDtaStream).toEqual('function');
-    expect(typeof binding.getDTAMetadata).toEqual('function');
+    expect(typeof binding.getDtaMetadata).toEqual('function');
 
     expect(typeof binding.readSav).toEqual('function');
     expect(typeof binding.readSavAsync).toEqual('function');
     expect(typeof binding.readSavStream).toEqual('function');
-    expect(typeof binding.getSAVMetadata).toEqual('function');
+    expect(typeof binding.getSavMetadata).toEqual('function');
 
     expect(typeof binding.readPor).toEqual('function');
     expect(typeof binding.readPorAsync).toEqual('function');
     expect(typeof binding.readPorStream).toEqual('function');
-    expect(typeof binding.getPORMetadata).toEqual('function');
+    expect(typeof binding.getPorMetadata).toEqual('function');
 });
 
 test('Generic ReadStat reader can read sas7bdat files', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
     const genericReader = new DatasetReadStat(filePath);
     const sasReader = new DatasetSas7BDat(filePath);
 
@@ -59,7 +59,7 @@ test('Generic ReadStat reader can read sas7bdat files', async () => {
 });
 
 test('Generic ReadStat reader can read DTA files', async () => {
-    const filePath = path.join(__dirname, '/data/sample.dta');
+    const filePath = path.join(__dirname, 'data', 'sample.dta');
     const genericReader = new DatasetReadStat(filePath);
     const dtaReader = new DatasetStata(filePath);
 

@@ -1,3 +1,4 @@
+import DatasetSas7BDat from '../src/index';
 import path from 'path';
 import fs from 'fs';
 const projectRoot = path.resolve(__dirname, '..');
@@ -136,5 +137,27 @@ describe('readSas7bdat Native Function', () => {
         expect(() => {
             readSas7bdat(sampleFilePath, 0, -5); // -1 is valid but -5 is not
         }).toThrow(/Row limit must be positive or -1/);
+    });
+});
+
+test('Get projected object rows with finite length across multiple chunks', async () => {
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
+    const data = new DatasetSas7BDat(filePath);
+    const rows = await data.getData({
+        start: 0,
+        length: 3,
+        type: 'object',
+        filterColumns: ['WEIGHT', 'NAME'],
+        chunkSize: 2,
+    });
+
+    expect(rows).toEqual({
+        data: [
+            { Weight: 112.5, Name: 'Alfred' },
+            { Weight: 84, Name: 'Alice' },
+            { Weight: 98, Name: 'Barbara' },
+        ],
+        lastRow: 2,
+        endReached: false,
     });
 });

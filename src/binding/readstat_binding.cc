@@ -1174,15 +1174,15 @@ Napi::Value GetSAS7BDATMetadata(const Napi::CallbackInfo& info) {
     return GetFormatMetadata(info, SAS7BDAT_FORMAT);
 }
 
-Napi::Value GetDTAMetadata(const Napi::CallbackInfo& info) {
+Napi::Value getDtaMetadata(const Napi::CallbackInfo& info) {
     return GetFormatMetadata(info, DTA_FORMAT);
 }
 
-Napi::Value GetSAVMetadata(const Napi::CallbackInfo& info) {
+Napi::Value getSavMetadata(const Napi::CallbackInfo& info) {
     return GetFormatMetadata(info, SAV_FORMAT);
 }
 
-Napi::Value GetPORMetadata(const Napi::CallbackInfo& info) {
+Napi::Value getPorMetadata(const Napi::CallbackInfo& info) {
     return GetFormatMetadata(info, POR_FORMAT);
 }
 
@@ -1501,15 +1501,15 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("readDta", Napi::Function::New(env, ReadDta));
     exports.Set("readDtaAsync", Napi::Function::New(env, ReadDtaAsync));
     exports.Set("readDtaStream", Napi::Function::New(env, ReadDtaStream));
-    exports.Set("getDTAMetadata", Napi::Function::New(env, GetDTAMetadata));
+    exports.Set("getDtaMetadata", Napi::Function::New(env, getDtaMetadata));
     exports.Set("readSav", Napi::Function::New(env, ReadSav));
     exports.Set("readSavAsync", Napi::Function::New(env, ReadSavAsync));
     exports.Set("readSavStream", Napi::Function::New(env, ReadSavStream));
-    exports.Set("getSAVMetadata", Napi::Function::New(env, GetSAVMetadata));
+    exports.Set("getSavMetadata", Napi::Function::New(env, getSavMetadata));
     exports.Set("readPor", Napi::Function::New(env, ReadPor));
     exports.Set("readPorAsync", Napi::Function::New(env, ReadPorAsync));
     exports.Set("readPorStream", Napi::Function::New(env, ReadPorStream));
-    exports.Set("getPORMetadata", Napi::Function::New(env, GetPORMetadata));
+    exports.Set("getPorMetadata", Napi::Function::New(env, getPorMetadata));
     return exports;
 }
 
