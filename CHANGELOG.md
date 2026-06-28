@@ -1,5 +1,8 @@
 # Changelog
 
+## [0.3.0]
+* Added support for additional ReadStat file formats: SPSS and Stata
+
 ## [0.2.0]
 * Breaking change: getData return signature changed to { data: ItemDataArray[]|ItemDataObject[] , lastRow: number, endReached: boolean}
 * Removed dynamicLength due to inefficiency

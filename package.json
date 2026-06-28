@@ -1,7 +1,7 @@
 {
     "name": "js-stream-sas7bdat",
-    "version": "0.2.0",
-    "description": "Stream SAS7BDAT files using ReadStat C library",
+    "version": "0.3.0",
+    "description": "Stream SAS7BDAT, Stata, and SPSS files using ReadStat C library",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "files": [
