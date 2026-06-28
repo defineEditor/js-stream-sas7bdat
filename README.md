@@ -33,7 +33,7 @@ To build the node native extension:
 npm run build
 ```
 
-On Windows, `libiconv` must be provided separately. Place `iconv.h` in `src/binding/libiconv/include` and the matching `libiconv.lib` files in the platform folders under `src/binding/libiconv`.
+On Windows, `libiconv` must be provided separately. Place `iconv.h` in `src/binding/libiconv/include` and `libiconv.lib` in `src/binding/libiconv/x32` (ia32) and `src/binding/libiconv/x64` (x64).
 
 ## Usage
 
@@ -46,7 +46,7 @@ import { createDatasetReader } from 'js-stream-sas7bdat';
 
 const dataset = createDatasetReader('/path/to/sample.sav');
 const metadata = await dataset.getMetadata();
-const rows = await dataset.getData({ start: 0, length: 10 });
+const { data, lastRow, endReached } = await dataset.getData({ start: 0, length: 10 });
 ```
 
 ### Format-Specific Readers
