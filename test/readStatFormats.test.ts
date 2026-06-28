@@ -3,6 +3,7 @@ import { DatasetSpss, DatasetStata } from '../src/index';
 
 const sampleDTA = path.join(__dirname, 'data', 'sample.dta');
 const sampleSAV = path.join(__dirname, 'data', 'sample.sav');
+const sampleZSAV = path.join(__dirname, 'data', 'sample.zsav');
 const samplePOR = path.join(__dirname, 'data', 'sample.por');
 
 describe('DatasetStata', () => {
@@ -187,6 +188,97 @@ describe('DatasetSpss', () => {
             endReached: false,
         });
     });
+
+    test('reads metadata for sample.zsav', async () => {
+        const data = new DatasetSpss(sampleZSAV);
+
+        await expect(data.getMetadata()).resolves.toMatchObject({
+            records: 5,
+            name: 'sample',
+            label: '',
+            columns: [
+                {
+                    itemOID: 'IT.mychar',
+                    name: 'mychar',
+                    dataType: 'string',
+                    displayFormat: 'A1',
+                },
+                {
+                    itemOID: 'IT.mynum',
+                    name: 'mynum',
+                    dataType: 'double',
+                    displayFormat: 'F8.2',
+                },
+                {
+                    itemOID: 'IT.mydate',
+                    name: 'mydate',
+                    dataType: 'double',
+                    displayFormat: 'EDATE10',
+                },
+                {
+                    itemOID: 'IT.dtime',
+                    name: 'dtime',
+                    dataType: 'double',
+                    displayFormat: 'DATETIME20',
+                },
+                {
+                    itemOID: 'IT.mylabl',
+                    name: 'mylabl',
+                    dataType: 'double',
+                    displayFormat: 'F8.2',
+                },
+                {
+                    itemOID: 'IT.myord',
+                    name: 'myord',
+                    dataType: 'double',
+                    displayFormat: 'F8.2',
+                },
+                {
+                    itemOID: 'IT.mytime',
+                    name: 'mytime',
+                    dataType: 'double',
+                    displayFormat: 'TIME8',
+                },
+            ],
+        });
+    });
+
+    test('reads sample.zsav rows and chunked subsets', async () => {
+        const data = new DatasetSpss(sampleZSAV);
+
+        await expect(
+            data.getData({
+                start: 0,
+                length: 5,
+            }),
+        ).resolves.toEqual({
+            data: [
+                ['a', 1.1, 13744944000, 13744980610, 1, 1, 36610],
+                ['b', 1.2, 9390124800, 9390161410, 2, 2, 83410],
+                ['c', -1000.3, 11903760000, 11903760000, 1, 3, 0],
+                ['d', -1.4, 6825600, 6825600, 2, 1, 58210],
+                ['e', 1000.3, null, null, 1, 1, null],
+            ],
+            lastRow: 4,
+            endReached: true,
+        });
+
+        await expect(
+            data.getData({
+                start: 1,
+                length: 2,
+                filterColumns: ['myord', 'mynum'],
+            }),
+        ).resolves.toEqual({
+            data: [
+                [2, 1.2],
+                [3, -1000.3],
+            ],
+            lastRow: 2,
+            endReached: false,
+        });
+    });
+
     test('reads metadata for sample.por', async () => {
         const data = new DatasetSpss(samplePOR);
 

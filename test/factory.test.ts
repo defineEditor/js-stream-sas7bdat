@@ -32,6 +32,11 @@ test('Native binding exposes separate format readers', () => {
     expect(typeof binding.readSavStream).toEqual('function');
     expect(typeof binding.getSavMetadata).toEqual('function');
 
+    expect(typeof binding.readZsav).toEqual('function');
+    expect(typeof binding.readZsavAsync).toEqual('function');
+    expect(typeof binding.readZsavStream).toEqual('function');
+    expect(typeof binding.getZsavMetadata).toEqual('function');
+
     expect(typeof binding.readPor).toEqual('function');
     expect(typeof binding.readPorAsync).toEqual('function');
     expect(typeof binding.readPorStream).toEqual('function');
@@ -85,6 +90,12 @@ test('Factory returns Stata reader for dta files', () => {
 
 test('Factory returns SPSS reader for sav files', () => {
     const data = createDatasetReader('/tmp/example.sav');
+
+    expect(data).toBeInstanceOf(DatasetSpss);
+});
+
+test('Factory returns SPSS reader for zsav files', () => {
+    const data = createDatasetReader('/tmp/example.zsav');
 
     expect(data).toBeInstanceOf(DatasetSpss);
 });

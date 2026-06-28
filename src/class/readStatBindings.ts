@@ -4,7 +4,12 @@ import {
     ReadStatMetadata,
 } from './../interfaces/datasetSas7BDat';
 
-export type ReadStatBindingFormat = 'sas7bdat' | 'dta' | 'sav' | 'por';
+export type ReadStatBindingFormat =
+    | 'sas7bdat'
+    | 'dta'
+    | 'sav'
+    | 'zsav'
+    | 'por';
 
 export type ReadStatStreamBinding = {
     (
@@ -68,6 +73,13 @@ const READSTAT_BINDINGS: Record<ReadStatBindingFormat, ReadStatBindingAdapter> =
             readStream: binding.readSavStream,
             getMetadata: binding.getSavMetadata,
         },
+        zsav: {
+            format: 'zsav',
+            read: binding.readZsav,
+            readAsync: binding.readZsavAsync,
+            readStream: binding.readZsavStream,
+            getMetadata: binding.getZsavMetadata,
+        },
         por: {
             format: 'por',
             read: binding.readPor,
@@ -98,7 +110,10 @@ export function detectReadStatBindingFormat(
     if (lowerCasePath.endsWith('.dta')) {
         return 'dta';
     }
-    if (lowerCasePath.endsWith('.sav') || lowerCasePath.endsWith('.zsav')) {
+    if (lowerCasePath.endsWith('.zsav')) {
+        return 'zsav';
+    }
+    if (lowerCasePath.endsWith('.sav')) {
         return 'sav';
     }
     if (lowerCasePath.endsWith('.por')) {
@@ -108,9 +123,11 @@ export function detectReadStatBindingFormat(
     throw new Error(`Unsupported file format for ${filePath}`);
 }
 
-export function resolveSpssBindingFormat(filePath: string): 'sav' | 'por' {
+export function resolveSpssBindingFormat(
+    filePath: string,
+): 'sav' | 'zsav' | 'por' {
     const format = detectReadStatBindingFormat(filePath);
-    if (format !== 'sav' && format !== 'por') {
+    if (format !== 'sav' && format !== 'zsav' && format !== 'por') {
         throw new Error(
             `SPSS readers support .sav, .zsav, and .por files. Got ${filePath}`,
         );

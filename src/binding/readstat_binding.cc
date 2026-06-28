@@ -6,6 +6,7 @@
 #include <memory>
 #include <set>
 #include <algorithm>
+#include <cstring>
 #include "./ReadStat/src/readstat.h"
 #include <ctime>
 #include <iomanip>
@@ -145,11 +146,66 @@ static const format_binding_config_t SAV_FORMAT = {
     &readstat_parse_sav,
 };
 
+static const format_binding_config_t ZSAV_FORMAT = {
+    "ZSAV",
+    "SPSS",
+    &readstat_parse_sav,
+};
+
 static const format_binding_config_t POR_FORMAT = {
     "POR",
     "SPSS",
     &readstat_parse_por,
 };
+
+static Napi::Value ReadFormat(
+    const Napi::CallbackInfo& info,
+    const format_binding_config_t& formatConfig
+);
+
+struct row_count_context_t {
+    long row_count;
+    long last_obs_index;
+
+    row_count_context_t() : row_count(0), last_obs_index(-1) {}
+};
+
+static int count_rows_handle_value(
+    int obs_index,
+    readstat_variable_t *variable,
+    readstat_value_t value,
+    void *ctx
+) {
+    row_count_context_t *context = (row_count_context_t *)ctx;
+    (void)variable;
+    (void)value;
+
+    if (context->last_obs_index != obs_index) {
+        context->row_count++;
+        context->last_obs_index = obs_index;
+    }
+
+    return READSTAT_HANDLER_OK;
+}
+
+static readstat_error_t count_format_rows(
+    const std::string& filePath,
+    const format_binding_config_t& formatConfig,
+    long *rowCount
+) {
+    row_count_context_t context;
+    readstat_parser_t *parser = readstat_parser_init();
+    readstat_set_value_handler(parser, &count_rows_handle_value);
+
+    readstat_error_t error = formatConfig.parse(parser, filePath.c_str(), &context);
+    readstat_parser_free(parser);
+
+    if (error == READSTAT_OK) {
+        *rowCount = context.row_count;
+    }
+
+    return error;
+}
 
 static std::vector<std::string> parseStringArray(const Napi::Value& value, const char *fieldName) {
     std::vector<std::string> result;
@@ -1182,8 +1238,25 @@ Napi::Value getSavMetadata(const Napi::CallbackInfo& info) {
     return GetFormatMetadata(info, SAV_FORMAT);
 }
 
+Napi::Value getZsavMetadata(const Napi::CallbackInfo& info) {
+    return GetFormatMetadata(info, ZSAV_FORMAT);
+}
+
 Napi::Value getPorMetadata(const Napi::CallbackInfo& info) {
-    return GetFormatMetadata(info, POR_FORMAT);
+    Napi::Env env = info.Env();
+    Napi::Value metadataValue = GetFormatMetadata(info, POR_FORMAT);
+    if (env.IsExceptionPending() || !metadataValue.IsObject()) {
+        return env.Null();
+    }
+
+    Napi::Object metadata = metadataValue.As<Napi::Object>();
+    Napi::Value rowsValue = ReadFormat(info, POR_FORMAT);
+    if (env.IsExceptionPending() || !rowsValue.IsArray()) {
+        return env.Null();
+    }
+
+    metadata.Set("records", rowsValue.As<Napi::Array>().Length());
+    return metadata;
 }
 
 // Node.js binding
@@ -1266,6 +1339,10 @@ Napi::Value ReadSav(const Napi::CallbackInfo& info) {
     return ReadFormat(info, SAV_FORMAT);
 }
 
+Napi::Value ReadZsav(const Napi::CallbackInfo& info) {
+    return ReadFormat(info, ZSAV_FORMAT);
+}
+
 Napi::Value ReadPor(const Napi::CallbackInfo& info) {
     return ReadFormat(info, POR_FORMAT);
 }
@@ -1316,6 +1393,10 @@ Napi::Value ReadDtaAsync(const Napi::CallbackInfo& info) {
 
 Napi::Value ReadSavAsync(const Napi::CallbackInfo& info) {
     return ReadFormatAsync(info, SAV_FORMAT);
+}
+
+Napi::Value ReadZsavAsync(const Napi::CallbackInfo& info) {
+    return ReadFormatAsync(info, ZSAV_FORMAT);
 }
 
 Napi::Value ReadPorAsync(const Napi::CallbackInfo& info) {
@@ -1489,6 +1570,10 @@ Napi::Value ReadSavStream(const Napi::CallbackInfo& info) {
     return ReadFormatStream(info, SAV_FORMAT);
 }
 
+Napi::Value ReadZsavStream(const Napi::CallbackInfo& info) {
+    return ReadFormatStream(info, ZSAV_FORMAT);
+}
+
 Napi::Value ReadPorStream(const Napi::CallbackInfo& info) {
     return ReadFormatStream(info, POR_FORMAT);
 }
@@ -1506,6 +1591,10 @@ Napi::Object Init(Napi::Env env, Napi::Object exports) {
     exports.Set("readSavAsync", Napi::Function::New(env, ReadSavAsync));
     exports.Set("readSavStream", Napi::Function::New(env, ReadSavStream));
     exports.Set("getSavMetadata", Napi::Function::New(env, getSavMetadata));
+    exports.Set("readZsav", Napi::Function::New(env, ReadZsav));
+    exports.Set("readZsavAsync", Napi::Function::New(env, ReadZsavAsync));
+    exports.Set("readZsavStream", Napi::Function::New(env, ReadZsavStream));
+    exports.Set("getZsavMetadata", Napi::Function::New(env, getZsavMetadata));
     exports.Set("readPor", Napi::Function::New(env, ReadPor));
     exports.Set("readPorAsync", Napi::Function::New(env, ReadPorAsync));
     exports.Set("readPorStream", Napi::Function::New(env, ReadPorStream));
