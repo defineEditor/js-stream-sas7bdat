@@ -93,6 +93,17 @@ class DatasetReadStat {
         }
     }
 
+    private formatTimestamp(timestamp?: number): string {
+        if (
+            typeof timestamp !== 'number' ||
+                    !Number.isFinite(timestamp)
+        ) {
+            return '';
+        }
+
+        return new Date(timestamp * 1000).toISOString();
+    };
+
     async getMetadata(forceReload?: boolean): Promise<DatasetMetadata> {
         if (this.metadataLoaded && !forceReload) {
             return this.metadata;
@@ -104,16 +115,12 @@ class DatasetReadStat {
             );
 
             this.metadata = {
-                datasetJSONCreationDateTime: new Date(
-                    metadata.CreationDateTime
-                        ? metadata.CreationDateTime * 1000
-                        : '',
-                ).toISOString(),
-                dbLastModifiedDateTime: new Date(
-                    metadata.ModifiedDateTime
-                        ? metadata.ModifiedDateTime * 1000
-                        : '',
-                ).toISOString(),
+                datasetJSONCreationDateTime: this.formatTimestamp(
+                    metadata.CreationDateTime,
+                ),
+                dbLastModifiedDateTime: this.formatTimestamp(
+                    metadata.ModifiedDateTime,
+                ),
                 datasetJSONVersion: '',
                 records: metadata.records,
                 name: metadata.name || '',

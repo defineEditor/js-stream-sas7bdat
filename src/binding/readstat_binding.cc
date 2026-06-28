@@ -913,6 +913,10 @@ private:
 
 // --- END ASYNC SUPPORT ---
 
+static const char *safe_cstring(const char *value) {
+    return value != nullptr ? value : "";
+}
+
 // Convert SAS format to a simplified type format
 std::string getSASDataType(readstat_type_t type) {
     switch(type) {
@@ -1009,11 +1013,17 @@ static int handle_metadata_only(readstat_metadata_t *metadata, void *ctx) {
 
     // Set dataset name
     const char* tableName = readstat_get_table_name(metadata);
-    context->dataset.Set("name", Napi::String::New(context->env, tableName));
+    context->dataset.Set(
+        "name",
+        Napi::String::New(context->env, safe_cstring(tableName))
+    );
 
     // Set dataset label if available
     const char* fileLabel = readstat_get_file_label(metadata);
-    context->dataset.Set("label", Napi::String::New(context->env, fileLabel));
+    context->dataset.Set(
+        "label",
+        Napi::String::New(context->env, safe_cstring(fileLabel))
+    );
 
     // Creation time
     time_t creationTime = readstat_get_creation_time(metadata);
@@ -1106,7 +1116,13 @@ static void apply_format_metadata(
     std::string fileName = filePath.substr(filePath.find_last_of("/\\") + 1);
     fileName = fileName.substr(0, fileName.find_last_of("."));
 
-    if (context->dataset.Get("name").ToString().Utf8Value().empty()) {
+    Napi::Value currentNameValue = context->dataset.Get("name");
+    std::string currentName =
+        currentNameValue.IsString()
+            ? currentNameValue.As<Napi::String>().Utf8Value()
+            : std::string();
+
+    if (currentName.empty()) {
         context->dataset.Set("name", Napi::String::New(context->env, fileName));
     }
 
