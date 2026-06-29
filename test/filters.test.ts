@@ -110,7 +110,7 @@ test('Check Last Row is correct', async () => {
 });
 
 test('Last Row is correctly set when length limit is reached', async () => {
-    const filePath = path.join(__dirname, '/data/sample.sas7bdat');
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
 
     const data = new DatasetSas7BDat(filePath);
 
@@ -126,6 +126,29 @@ test('Last Row is correctly set when length limit is reached', async () => {
         filter,
         filterColumns: ['NAME', 'SEX', 'AGE'],
     });
+    expect(rows.lastRow).toEqual(12);
+    expect(rows.endReached).toEqual(false);
+});
+
+test('Chunked filtered reads stop early and preserve last row', async () => {
+    const filePath = path.join(__dirname, 'data', 'sample.sas7bdat');
+
+    const data = new DatasetSas7BDat(filePath);
+
+    const rows = await data.getData({
+        start: 0,
+        length: 8,
+        chunkSize: 2,
+        filter: {
+            conditions: [
+                { variable: 'SEX', operator: 'eq', value: 'F' },
+            ],
+            connectors: [],
+        } as BasicFilter,
+        filterColumns: ['NAME', 'SEX', 'AGE'],
+    });
+
+    expect(rows.data.length).toEqual(8);
     expect(rows.lastRow).toEqual(12);
     expect(rows.endReached).toEqual(false);
 });

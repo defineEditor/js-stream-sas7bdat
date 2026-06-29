@@ -1,16 +1,26 @@
 # js-stream-sas7bdat
-*js-stream-sas7bdat* is a TypeScript library for streaming and processing SAS7BDAT files in Node.js environment. It provides functionalities to read data and metadata from SAS7BDAT files using [ReadStat](https://github.com/WizardMac/ReadStat) library.
-The output format matches CDISC Dataset-JSON 1.1 format.
+
+js-stream-sas7bdat is a TypeScript library for streaming and processing datasets through the ReadStat C library in Node.js.
+
+It supports these formats:
+
+- SAS: `.sas7bdat`
+- Stata: `.dta`
+- SPSS: `.sav`, `.zsav`, `.por`
+
+The metadata shape follows CDISC Dataset-JSON 1.1 conventions.
 
 ## Features
-* Stream SAS7BDAT files
-* Extract metadata from SAS7BDAT files
-* Read observations as an iterable
-* Get unique values from observations
-* Filter data
+
+- Read metadata from SAS, Stata, and SPSS datasets
+- Read rows as arrays or keyed objects
+- Stream records with async iteration
+- Project selected columns
+- Filter rows with `js-array-filter`
+- Compute unique values per column
+- Auto-detect reader type from the file extension
 
 ## Installation
-Install the library using npm:
 
 ```sh
 npm install js-stream-sas7bdat
@@ -23,172 +33,192 @@ To build the node native extension:
 npm run build
 ```
 
-To build on Windows, it is required to compile libiconv outside of this project and place iconv.h to src/binding/libiconv/include and 32-bit and 64-bit versions of libiconv.lib in folders /src/binding/libiconv/x32/ and /src/binding/libiconv/x64/.
-
-The project includes prebuild binaries which were tested for Linux x64 and Windows x64.
+On Windows, `libiconv` must be provided separately. Place `iconv.h` in `src/binding/libiconv/include` and `libiconv.lib` in `src/binding/libiconv/x32` (ia32) and `src/binding/libiconv/x64` (x64).
 
 ## Usage
-```TypeScript
-dataset = new DatasetSas7BDat(filePath, [options])
-```
-### Creating Dataset-SAS7BDAT instance
-```TypeScript
-import DatasetSas7BDat from 'js-stream-sas7bdat';
 
-dataset = new DatasetSas7BDat('/path/to/dataset.sas7bdat')
-```
+### Generic Reader
 
-#### Example
-```TypeScript
-const dataset = new DatasetSas7BDat('/path/to/dataset.sas7bdat');
+Use `createDatasetReader` when you want the library to select the correct reader from the file extension.
+
+```ts
+import { createDatasetReader } from 'js-stream-sas7bdat';
+
+const dataset = createDatasetReader('/path/to/sample.sav');
+const metadata = await dataset.getMetadata();
+const { data, lastRow, endReached } = await dataset.getData({ start: 0, length: 10 });
 ```
 
-### Getting Metadata
-```TypeScript
+### Format-Specific Readers
+
+Use the explicit classes when the dataset type is known.
+
+```ts
+import DatasetSas7BDat, {
+  DatasetReadStat,
+  DatasetSpss,
+  DatasetStata,
+} from 'js-stream-sas7bdat';
+
+const sasDataset = new DatasetSas7BDat('/path/to/sample.sas7bdat');
+const stataDataset = new DatasetStata('/path/to/sample.dta');
+const spssDataset = new DatasetSpss('/path/to/sample.zsav');
+
+const genericDataset = new DatasetReadStat('/path/to/sample.dat', {
+  format: 'dta',
+});
+```
+
+The default export remains `DatasetSas7BDat` for backward compatibility.
+
+### Reading Metadata
+
+```ts
 const metadata = await dataset.getMetadata();
 ```
-### Reading Observations
-```TypeScript
-// Read first 500 records of a dataset
-const data = await dataset.getData({start: 0, length: 500})
+
+### Reading Rows
+
+```ts
+const result = await dataset.getData({
+  start: 0,
+  length: 500,
+  type: 'object',
+  filterColumns: ['studyId', 'uSubjId'],
+});
+
+console.log(result.data);
+console.log(result.lastRow);
+console.log(result.endReached);
 ```
 
-### Reading Observations as iterable
-```TypeScript
-// Read dataset starting from position 10 (11th record in the dataset)
-for await (const record of dataset.readRecords({start: 10, filterColumns: ["studyId", "uSubjId"], type: "object"})) {
-    console.log(record);
+`getData()` returns:
+
+```ts
+{
+  data: (ItemDataArray | ItemDataObject)[];
+  lastRow: number;
+  endReached: boolean;
 }
 ```
+
+### Streaming Rows
+
+```ts
+for await (const record of dataset.readRecords({
+  start: 10,
+  bufferLength: 1000,
+  type: 'object',
+  filterColumns: ['studyId', 'uSubjId'],
+})) {
+  console.log(record);
+}
+```
+
+### Filtering Rows
+
+Filtering is supported by `getData()` through the `js-array-filter` package.
+
+```ts
+import Filter from 'js-array-filter';
+import { createDatasetReader } from 'js-stream-sas7bdat';
+
+const dataset = createDatasetReader('/path/to/sample.sas7bdat');
+const metadata = await dataset.getMetadata();
+
+const filter = new Filter('dataset-json1.1', metadata.columns, {
+  conditions: [
+    { variable: 'AGE', operator: 'gt', value: 55 },
+    { variable: 'DCDECOD', operator: 'eq', value: 'STUDY TERMINATED BY SPONSOR' },
+  ],
+  connectors: ['or'],
+});
+
+const filtered = await dataset.getData({
+  start: 0,
+  length: 100,
+  type: 'object',
+  filter,
+  filterColumns: ['USUBJID', 'DCDECOD', 'AGE'],
+});
+
+console.log(filtered.data);
+```
+
+A `BasicFilter` object can also be passed as `filter`.
 
 ### Getting Unique Values
-```TypeScript
-const uniqueValues = await dataset.getUniqueValues({ columns: ["studyId", "uSubjId"], limit: 100 });
-```
 
-### Applying Filters
-You can apply filters to the data when reading observations using the `js-array-filter` package.
-
-#### Example
-```TypeScript
-import Filter from 'js-array-filter';
-
-// Define a filter
-const filter = new Filter('dataset-json1.1', metadata.columns, {
-    conditions: [
-        { variable: 'AGE', operator: 'gt', value: 55 },
-        { variable: 'DCDECOD', operator: 'eq', value: 'STUDY TERMINATED BY SPONSOR' }
-    ],
-    connectors: ['or']
-});
-
-// Apply the filter when reading data
-const filteredData = dataset.getData({
-    start: 0,
-    filter: filter,
-    filterColumns: ['USUBJID', 'DCDECOD', 'AGE']
-});
-console.log(filteredData);
-```
-
-A BasicFilter object can also be used as a filter value (3rd argument of Filter class constructor).
-
-## Methods
-
-### `getMetadata`
-
-Returns the metadata of the SAS7BDAT file.
-
-#### Returns
-
-- `Promise<Metadata>`: A promise that resolves to the metadata of the dataset.
-
-#### Example
-
-```typescript
-const metadata = await dataset.getMetadata();
-console.log(metadata);
-```
-
-### `getData`
-
-Reads observations from the dataset.
-
-#### Parameters
-
-- `props` (object): An object containing the following properties:
-  - `start` (number, optional): The starting position for reading data.
-  - `length` (number, optional): The number of records to read. Defaults to reading all records.
-  - `type` (DataType, optional): The type of the returned object ("array" or "object"). Defaults to "array".
-  - `filterColumns` (string[], optional): The list of columns to return when type is "object". If empty, all columns are returned.
-  - `filter` (Filter, optional): A Filter instance from js-array-filter package used to filter data records.
-
-#### Returns
-
-- `Promise<(ItemDataArray | ItemDataObject)[]>`: A promise that resolves to an array of data records.
-
-#### Example
-
-```typescript
-const data = await dataset.getData({ start: 0, length: 500, type: "object", filterColumns: ["studyId", "uSubjId"] });
-console.log(data);
-```
-
-### `readRecords`
-
-Reads observations as an iterable.
-
-#### Parameters
-
-- `props` (object, optional): An object containing the following properties:
-  - `start` (number, optional): The starting position for reading data. Defaults to 0.
-  - `bufferLength` (number, optional): The number of records to read in each chunk. Defaults to 1000.
-  - `type` (DataType, optional): The type of data to return ("array" or "object"). Defaults to "array".
-  - `filterColumns` (string[], optional): An array of column names to include in the returned data.
-
-#### Returns
-
-- `AsyncGenerator<ItemDataArray | ItemDataObject, void, undefined>`: An async generator that yields data records.
-
-#### Example
-
-```typescript
-for await (const record of dataset.readRecords({ start: 10, filterColumns: ["studyId", "uSubjId"], type: "object" })) {
-    console.log(record);
-}
-```
-
-### `getUniqueValues`
-
-Gets unique values for variables.
-
-#### Parameters
-
-- `props` (object): An object containing the following properties:
-  - `columns` (string[]): An array of column names to get unique values for.
-  - `limit` (number, optional): The maximum number of unique values to return for each column. Defaults to 100.
-  - `bufferLength` (number, optional): The buffer length for reading data. Defaults to 1000.
-  - `sort` (boolean, optional): Whether to sort the unique values. Defaults to true.
-
-#### Returns
-
-- `Promise<UniqueValues>`: A promise that resolves to an object containing unique values for the specified columns.
-
-#### Example
-
-```typescript
+```ts
 const uniqueValues = await dataset.getUniqueValues({
-    columns: ["studyId", "uSubjId"],
-    limit: 100,
-    bufferLength: 1000,
-    sort: true
+  columns: ['studyId', 'uSubjId'],
+  limit: 100,
+  bufferLength: 1000,
+  sort: true,
+  addCount: true,
 });
+
 console.log(uniqueValues);
 ```
-----
+
+## API Summary
+
+### `createDatasetReader(filePath, options?)`
+
+Creates a dataset reader by detecting the file format from the extension.
+
+### `new DatasetReadStat(filePath, options?)`
+
+Creates the generic ReadStat-backed reader.
+
+Options:
+
+- `encoding?: BufferEncoding` default `utf8`
+- `checkExists?: boolean` default `false`
+- `format?: 'sas7bdat' | 'dta' | 'sav' | 'zsav' | 'por'`
+
+### `getMetadata(forceReload?)`
+
+Returns `Promise<DatasetMetadata>`.
+
+### `getData(props)`
+
+Parameters:
+
+- `start?: number`
+- `length?: number` use `-1` to read to the end
+- `type?: 'array' | 'object'`
+- `filterColumns?: string[]`
+- `filter?: Filter | BasicFilter`
+- `chunkSize?: number`
+
+Returns a promise resolving to an object with `data`, `lastRow`, and `endReached`.
+
+### `readRecords(props?)`
+
+Parameters:
+
+- `start?: number`
+- `bufferLength?: number`
+- `type?: 'array' | 'object'`
+- `filterColumns?: string[]`
+
+Returns `AsyncGenerator<ItemDataArray | ItemDataObject, void, undefined>`.
+
+### `getUniqueValues(props)`
+
+Parameters:
+
+- `columns: string[]`
+- `limit?: number`
+- `bufferLength?: number`
+- `sort?: boolean`
+- `addCount?: boolean`
+
+Returns `Promise<UniqueValues>`.
 
 ## Running Tests
-Run the tests using Jest:
+
 ```sh
 npm test
 ```

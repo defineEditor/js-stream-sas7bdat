@@ -451,6 +451,15 @@ static readstat_error_t sas7bdat_parse_single_row(const char *data, sas7bdat_ctx
         ctx->row_offset--;
         return READSTAT_OK;
     }
+    if (ctx->handle.row) {
+        int cb_retval = ctx->handle.row(ctx->parsed_row_count, ctx->user_ctx);
+        if (cb_retval == READSTAT_HANDLER_ABORT)
+            return READSTAT_ERROR_USER_ABORT;
+        if (cb_retval == READSTAT_HANDLER_SKIP_ROW) {
+            ctx->parsed_row_count++;
+            return READSTAT_OK;
+        }
+    }
 
     readstat_error_t retval = READSTAT_OK;
     int j;

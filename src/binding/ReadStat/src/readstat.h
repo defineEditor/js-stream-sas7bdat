@@ -20,7 +20,8 @@ extern "C" {
 enum {
     READSTAT_HANDLER_OK,
     READSTAT_HANDLER_ABORT,
-    READSTAT_HANDLER_SKIP_VARIABLE
+    READSTAT_HANDLER_SKIP_VARIABLE,
+    READSTAT_HANDLER_SKIP_ROW
 };
 
 typedef enum readstat_type_e {
@@ -307,6 +308,7 @@ typedef int (*readstat_note_handler)(int note_index, const char *note, void *ctx
 typedef int (*readstat_variable_handler)(int index, readstat_variable_t *variable, 
         const char *val_labels, void *ctx);
 typedef int (*readstat_fweight_handler)(readstat_variable_t *variable, void *ctx);
+typedef int (*readstat_row_handler)(long obs_index, void *ctx);
 typedef int (*readstat_value_handler)(int obs_index, readstat_variable_t *variable,
         readstat_value_t value, void *ctx);
 typedef int (*readstat_value_label_handler)(const char *val_labels, 
@@ -353,6 +355,7 @@ typedef struct readstat_callbacks_s {
     readstat_note_handler          note;
     readstat_variable_handler      variable;
     readstat_fweight_handler       fweight;
+    readstat_row_handler           row;
     readstat_value_handler         value;
     readstat_value_label_handler   value_label;
     readstat_error_handler         error;
@@ -376,6 +379,7 @@ readstat_error_t readstat_set_metadata_handler(readstat_parser_t *parser, readst
 readstat_error_t readstat_set_note_handler(readstat_parser_t *parser, readstat_note_handler note_handler);
 readstat_error_t readstat_set_variable_handler(readstat_parser_t *parser, readstat_variable_handler variable_handler);
 readstat_error_t readstat_set_fweight_handler(readstat_parser_t *parser, readstat_fweight_handler fweight_handler);
+readstat_error_t readstat_set_row_handler(readstat_parser_t *parser, readstat_row_handler row_handler);
 readstat_error_t readstat_set_value_handler(readstat_parser_t *parser, readstat_value_handler value_handler);
 readstat_error_t readstat_set_value_label_handler(readstat_parser_t *parser, readstat_value_label_handler value_label_handler);
 readstat_error_t readstat_set_error_handler(readstat_parser_t *parser, readstat_error_handler error_handler);
